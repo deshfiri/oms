@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\" -type d -name \"app\" -o -type d -name \"config\" -o -type d -name \"database\" -o -type d -name \"routes\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\app\" -type f -name \"*.php\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\database\" -type f -name \"*.php\")",
+      "Bash(grep -r \"default_courier\" \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\app\")",
+      "Bash(grep -r \"default_courier\" \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\database\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\resources\" -type f -name \"*.blade.php\")",
+      "Bash(grep -r \"default_courier\\\\|outside_dhaka_courier\" \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\resources\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\dfoms\\\\routes\" -type f -name \"*.php\")",
+      "Bash(xargs ls -la)",
+      "Read(///wsl.localhost/Ubuntu/home/ahsan/projects/**)",
+      "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\")",
+      "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\app\" /s /b)",
+      "Bash(findstr /i \"courier\")",
+      "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\app\" /b)"
+    ]
+  }
+}

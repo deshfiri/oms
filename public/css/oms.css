@@ -1,0 +1,296 @@
+/* =============================================================
+   DFOMS additions on top of admin.css
+   - Search bar in topbar (DFCOMMERCE had this inline)
+   - Pill colours for OMS-specific statuses (RMA, shipments, stock,
+     payments, roles)
+   - Consistent button system (heights, hovers, semantic variants)
+   - Custom pagination so we don't depend on Tailwind
+   - Mobile polish: hide noisy columns, stack page-header, etc.
+   ============================================================= */
+
+/* ============================================================
+   BUTTONS — unified sizing + clear hover states.
+   Heights:  btn-sm 30px · btn 36px · btn-lg 44px
+   Variants: btn-dark (primary), btn-red (accent),
+             btn-outline (secondary), btn-ghost (tertiary),
+             btn-danger (destructive)
+   The .admin-body prefix matches admin.css's specificity so
+   these rules win because they load second.
+   ============================================================ */
+.admin-body .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    gap:8px;height:40px;padding:0 18px;min-width:88px;
+    font-size:13.5px;font-weight:600;line-height:1;letter-spacing:.15px;
+    border-radius:var(--a-r);border:1.5px solid transparent;
+    cursor:pointer;white-space:nowrap;text-decoration:none;
+    transition:background .15s ease,border-color .15s ease,
+               color .15s ease,box-shadow .15s ease,transform .12s ease;
+}
+.admin-body .btn:active{transform:translateY(1px)}
+.admin-body .btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(var(--brand-rgb,17,146,100),.22)}
+.admin-body .btn:disabled,.admin-body .btn.disabled{opacity:.55;cursor:not-allowed;transform:none !important;box-shadow:none !important}
+.admin-body .btn svg{width:15px;height:15px;flex-shrink:0}
+
+/* sizes — used sparingly; default is the one for almost every page */
+.admin-body .btn-sm{
+    height:34px;padding:0 13px;min-width:0;
+    font-size:12.5px;border-radius:6px;
+}
+.admin-body .btn-sm svg{width:13px;height:13px}
+.admin-body .btn-lg{
+    height:48px;padding:0 26px;
+    font-size:14.5px;font-weight:700;letter-spacing:.2px;
+}
+.admin-body .btn-lg svg{width:17px;height:17px}
+.admin-body .btn-block{width:100%}
+
+/* ---------- variants ---------- */
+
+/* PRIMARY — solid green, the workhorse for "do it" actions */
+.admin-body .btn-dark{
+    background:var(--a-accent,#119264);color:#fff;border-color:var(--a-accent,#119264);
+}
+.admin-body .btn-dark:hover{
+    background:var(--a-accent-hover,#0d7650);border-color:var(--a-accent-hover,#0d7650);color:#fff;
+    box-shadow:0 4px 12px rgba(var(--brand-rgb,17,146,100),.30);
+}
+
+/* ACCENT — solid green primary, used for the primary CTA in the admin chrome */
+.admin-body .btn-red,
+.admin-body .btn-primary,
+.admin-body .btn:not(.btn-outline):not(.btn-ghost):not(.btn-dark):not(.btn-danger):not(.btn-sm-only){
+    background:var(--a-accent,#119264);color:#fff;border-color:var(--a-accent,#119264);
+}
+.admin-body .btn-red:hover,
+.admin-body .btn-primary:hover{
+    background:var(--a-accent-hover,#0d7650);
+    border-color:var(--a-accent-hover,#0d7650);
+    color:#fff;
+    box-shadow:0 4px 12px rgba(var(--brand-rgb,17,146,100),.30);
+}
+
+/* SECONDARY — white card on grey with green accent on hover */
+.admin-body .btn-outline{
+    background:#fff;color:var(--a-text,#0d0d0d);
+    border-color:var(--a-border,#e5e7eb);
+}
+.admin-body .btn-outline:hover{
+    background:#f3f4f6;border-color:var(--a-accent,#119264);color:var(--a-accent,#119264);
+}
+
+/* TERTIARY — text-only with green color, used for "Cancel" + "Clear" + inline utility */
+.admin-body .btn-ghost{
+    background:transparent;color:var(--a-accent,#119264);border-color:transparent;
+}
+.admin-body .btn-ghost:hover{
+    background:var(--a-accent-soft,#e6f5f0);color:var(--a-accent,#119264);
+}
+
+/* DESTRUCTIVE — solid red, the user must read this twice */
+.admin-body .btn-danger{
+    background:#dc2626;color:#fff;border-color:#dc2626;
+}
+.admin-body .btn-danger:hover{
+    background:#b91c1c;border-color:#b91c1c;color:#fff;
+    box-shadow:0 4px 12px rgba(220,38,38,.30);
+}
+
+/* inline form buttons should not stretch */
+.admin-body form > .btn{vertical-align:middle}
+
+/* row action stack — keeps Ping/Sync/Edit/Delete the same height + spacing */
+.atable td > form,
+.atable td > .btn,
+.atable td > a.btn{vertical-align:middle}
+.atable td > form{display:inline-flex;margin:0 2px 0 0}
+.atable td > form + form,
+.atable td > form + .btn,
+.atable td > form + a.btn,
+.atable td > .btn + .btn,
+.atable td > a.btn + a.btn,
+.atable td > a.btn + form{margin-left:2px}
+
+/* ---------- inputs in filter rows: match the 40px button height ----------
+   Many filter forms put `class="input"` with inline tiny padding next to a
+   .btn — make those match by giving the .input a sane default height that
+   visually lines up with the default button. */
+.admin-body .admin-card-head .input,
+.admin-body .admin-card-head select.input,
+.admin-body .admin-card-head input.input,
+.admin-body form > .input,
+.admin-body form > label .input{
+    height:40px;padding:0 13px;font-size:13.5px;
+}
+.admin-body .admin-card-head select.input,
+.admin-body form > label select.input{padding-right:30px}
+
+/* ---------- topbar search ---------- */
+.admin-search-bar{
+    display:flex;align-items:stretch;flex:1;max-width:520px;
+    background:#fff;border:1.5px solid var(--a-border);border-radius:var(--a-r);
+    overflow:hidden;min-width:0;
+    transition:border-color .18s ease,box-shadow .18s ease;
+}
+.admin-search-bar:focus-within{
+    border-color:var(--a-accent);
+    box-shadow:0 0 0 3px rgba(var(--brand-rgb,17,146,100),.08);
+}
+.admin-search-bar input{
+    flex:1;border:none;background:none;
+    padding:9px 14px;font-size:13.5px;
+    color:var(--a-text);outline:none;min-width:0;font-family:inherit;
+}
+.admin-search-bar input::placeholder{color:var(--a-text-3)}
+.admin-search-btn{
+    background:var(--a-accent);border:none;padding:0 16px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .18s ease;
+    flex-shrink:0;color:#fff;
+}
+.admin-search-btn:hover{background:var(--a-accent-hover,#0d7650)}
+
+/* ---------- extra pill colours for OMS-only statuses ---------- */
+/* base pill style — admin.css already styles .pill, this just adds variants */
+.pill-open,
+.pill-requested,
+.pill-received,
+.pill-inspected,
+.pill-booked,
+.pill-picked_up,
+.pill-in_transit,
+.pill-completed,
+.pill-restock,
+.pill-exchange,
+.pill-refund_only,
+.pill-damage,
+.pill-in_stock,
+.pill-low_stock,
+.pill-out_of_stock,
+.pill-exception,
+.pill-return_to_sender,
+.pill-undelivered,
+.pill-cod,.pill-bkash,.pill-nagad,.pill-rocket,.pill-upay,.pill-card,.pill-visa,.pill-sslcommerz,.pill-shurjopay,.pill-amarpay,.pill-eps,.pill-bank_transfer,.pill-manual,
+.pill-admin,.pill-picker,.pill-packer,.pill-dispatcher,.pill-returns_clerk,.pill-damage_clerk,.pill-stock_counter
+{ display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.2px;line-height:1.5;text-transform:capitalize;border:1px solid transparent; }
+
+/* sky — neutral in-progress (using blue) */
+.pill-open,.pill-requested,.pill-received,.pill-inspected,.pill-booked,.pill-picked_up,.pill-in_transit
+{ background:#e6f0ff;color:#2077b6;border-color:#99ccff }
+
+/* emerald — success (using green) */
+.pill-completed,.pill-restock,.pill-in_stock
+{ background:#e6f5f0;color:#119062;border-color:#99d4c5 }
+
+/* amber — caution (using orange) */
+.pill-low_stock,.pill-exchange,.pill-refund_only
+{ background:#ffe8d1;color:#d96e1f;border-color:#ffd4a8 }
+
+/* rose — danger / problem */
+.pill-damage,.pill-out_of_stock,.pill-exception,.pill-return_to_sender,.pill-undelivered
+{ background:#fee2e2;color:#991b1b;border-color:#fecaca }
+
+/* payments — uniform slate */
+.pill-cod,.pill-bkash,.pill-nagad,.pill-rocket,.pill-upay,.pill-card,.pill-visa,.pill-sslcommerz,.pill-shurjopay,.pill-amarpay,.pill-eps,.pill-bank_transfer,.pill-manual
+{ background:#f1f5f9;color:#334155;border-color:#e2e8f0;text-transform:uppercase;font-size:10.5px;letter-spacing:.5px }
+
+/* roles */
+.pill-admin{ background:#fee2e2;color:#991b1b;border-color:#fecaca }
+.pill-picker,.pill-packer,.pill-dispatcher,.pill-returns_clerk,.pill-damage_clerk,.pill-stock_counter,
+.pill-customer_support,.pill-warehouse_admin,.pill-inventory_admin,.pill-social_media_manager
+{ background:#e6f5f0;color:#119062;border-color:#99d4c5 }
+
+/* ---------- order-lifecycle status pills (18 states) ---------- */
+.pill-pending_verification,.pill-confirmed,.pill-processing,.pill-packed,.pill-dispatched,
+.pill-shipped,.pill-out_for_delivery,.pill-delivered,.pill-partial_delivery,
+.pill-return_pending,.pill-returned,.pill-restockable,.pill-damaged,
+.pill-exchange_requested,.pill-exchange_processing,.pill-awaiting_return_product,.pill-lost,.pill-cancelled
+{ display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.2px;line-height:1.5;border:1px solid transparent;white-space:nowrap; }
+
+/* amber — needs human attention */
+.pill-pending_verification { background:#fff4e0;color:#b45309;border-color:#fde2b3 }
+/* slate — confirmed, queued */
+.pill-confirmed,.pill-processing { background:#eef2f7;color:#475569;border-color:#dbe3ec }
+/* indigo — packed / in warehouse motion */
+.pill-packed { background:#e8eaff;color:#4338ca;border-color:#c7cbff }
+/* blue — in courier transit */
+.pill-dispatched,.pill-shipped,.pill-out_for_delivery { background:#e6f0ff;color:#1d6fb8;border-color:#a8cdf0 }
+/* green — delivered / restockable (good) */
+.pill-delivered,.pill-restockable { background:#e6f5ec;color:#15803d;border-color:#b3e0c2 }
+/* teal — partial delivery */
+.pill-partial_delivery { background:#def5f1;color:#0f766e;border-color:#a8e0d8 }
+/* orange — reverse logistics in progress */
+.pill-return_pending,.pill-returned,.pill-awaiting_return_product { background:#ffece0;color:#c2410c;border-color:#ffd1b3 }
+/* purple — exchange */
+.pill-exchange_requested,.pill-exchange_processing { background:#f3e8ff;color:#7e22ce;border-color:#e2cffc }
+/* red — terminal bad */
+.pill-cancelled,.pill-damaged,.pill-lost { background:#fee2e2;color:#b91c1c;border-color:#fecaca }
+
+/* ---------- pagination (works with Laravel default and useBootstrapFive markup) ---------- */
+.admin-pagination{padding:14px 16px;display:flex;justify-content:center}
+.admin-pagination nav{width:100%;display:flex;justify-content:center;flex-wrap:wrap;gap:4px;align-items:center}
+.admin-pagination svg{width:14px;height:14px}
+.admin-pagination ul.pagination{
+    display:flex;flex-wrap:wrap;gap:4px;align-items:center;
+    list-style:none;padding:0;margin:0;
+}
+.admin-pagination .page-item{display:inline-flex}
+.admin-pagination a,
+.admin-pagination span,
+.admin-pagination .page-link{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:34px;height:34px;padding:0 10px;
+    font-size:12.5px;font-weight:600;color:var(--a-text-2);
+    background:var(--a-surface);border:1px solid var(--a-border);
+    border-radius:var(--a-r);text-decoration:none;
+    transition:all .15s ease;
+}
+.admin-pagination a:hover,
+.admin-pagination .page-link:hover{ background:var(--a-surface-2);color:var(--a-text);border-color:var(--a-text-3) }
+.admin-pagination [aria-current="page"] span,
+.admin-pagination .page-item.active .page-link{ background:var(--a-accent);color:#fff;border-color:var(--a-accent) }
+.admin-pagination [aria-disabled="true"],
+.admin-pagination .page-item.disabled .page-link{ opacity:.4;cursor:not-allowed }
+.admin-pagination p{margin:0;font-size:11px;color:var(--a-text-3);width:100%;text-align:center}
+
+/* ---------- mobile polish ---------- */
+@media(max-width:900px){
+    .admin-page-header{flex-direction:column;align-items:stretch;gap:10px}
+    /* Only the *action* div (second sibling) — never the title div alone */
+    .admin-page-header > div + div,
+    .admin-page-header > div + a{width:100%;display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px}
+    .admin-page-header h1{font-size:18px}
+    .admin-page-header .sub{font-size:12.5px}
+    .admin-card-head{flex-direction:column;align-items:flex-start;gap:10px}
+    .admin-card-head form{width:100%}
+    .admin-card-head .input{min-width:0;max-width:100%}
+
+    /* Stack two-column grids on phones */
+    [style*="grid-template-columns:2fr 1fr"],
+    [style*="grid-template-columns:1fr 2fr"],
+    [style*="grid-template-columns:1fr 1fr"]{
+        grid-template-columns:1fr !important;
+    }
+    [style*="grid-template-columns:repeat(3,1fr)"]{
+        grid-template-columns:repeat(2,1fr) !important;
+    }
+
+    /* Hide nice-to-have columns on phones */
+    .atable .hide-mobile{display:none}
+}
+@media(max-width:560px){
+    .admin-content{padding:12px}
+    .atable thead th{font-size:10px;padding:8px 8px}
+    .atable tbody td{padding:8px}
+    .admin-user-chip .name{display:none} /* keep avatar only */
+}
+
+/* ---------- input baseline (needed because admin.css's .input is opinionated) ---------- */
+.atable a:focus-visible,
+.btn:focus-visible,
+.input:focus-visible{
+    outline:2px solid var(--a-accent);
+    outline-offset:1px;
+}
+
+/* ---------- nicer empty card padding ---------- */
+.admin-card .admin-card-body + .admin-card-body{border-top:1px solid var(--a-border)}
