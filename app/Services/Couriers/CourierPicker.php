@@ -8,32 +8,40 @@ use App\Models\OrderMirror;
  * Decide which courier to use for an order.
  *
  * Priority:
- *   1. The courier chosen on the store website for this specific order
- *      (orders_mirror.preferred_courier) — the website is where the courier is
- *      selected, so the OMS honours it.
- *   2. The store's outside-Dhaka courier for non-Dhaka zones.
- *   3. The store's default courier.
+ *   1. The store's outside-Dhaka courier for non-Dhaka zones.
+ *   2. The store's default courier (configured in the Client Panel).
+ *   3. The courier chosen on the store website for this specific order
+ *      (orders_mirror.preferred_courier) — fallback only when no store
+ *      courier is configured.
  *   4. 'steadfast' as a last resort.
  */
 class CourierPicker
 {
     public function pickFor(OrderMirror $order): string
     {
-        // 1. Honour the courier the store website assigned to this order.
-        $preferred = $this->normalize($order->preferred_courier);
-        if ($preferred) return $preferred;
-
         $store = $order->store;
-        if (! $store) return 'steadfast';
 
-        // 2. Zone-based store rule.
+        if (! $store) {
+            return $this->normalize($order->preferred_courier) ?? 'steadfast';
+        }
+
+        // 1. Zone-based store rule.
         $outside = $store->outside_dhaka_courier;
         if ($outside && $order->shipping_zone && $order->shipping_zone !== 'inside_dhaka') {
             return $outside;
         }
 
-        // 3 & 4.
-        return $store->default_courier ?: 'steadfast';
+        // 2. Store's default courier — the Client Panel setting always wins.
+        if ($store->default_courier) {
+            return $store->default_courier;
+        }
+
+        // 3. Fall back to the courier assigned by the store website.
+        $preferred = $this->normalize($order->preferred_courier);
+        if ($preferred) return $preferred;
+
+        // 4.
+        return 'steadfast';
     }
 
     /** Reduce a free-text courier label to a known adapter slug, or null. */
