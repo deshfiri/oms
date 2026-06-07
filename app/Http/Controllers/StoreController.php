@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Services\Storefront\StorefrontClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class StoreController extends Controller
 {
@@ -15,10 +16,10 @@ class StoreController extends Controller
 
     public function store(Request $r)
     {
-        $data = $this->validateForm($r);
-        $secret = $data['api_secret'];   // pulled aside so it can't be mass-assigned as null
+        $data   = $this->validateForm($r);
+        $secret = $data['api_secret'];
         unset($data['api_secret']);
-        $store = new Store($data);
+        $store             = new Store($data);
         $store->api_secret = $secret;
         $store->save();
         return redirect()->route('stores.index')->with('status', 'Store added');
@@ -28,8 +29,7 @@ class StoreController extends Controller
 
     public function update(Request $r, Store $store)
     {
-        $data = $this->validateForm($r, $store);
-        // Keep secret out of fill() — blanking the field must mean "keep existing".
+        $data   = $this->validateForm($r, $store);
         $secret = $data['api_secret'] ?? null;
         unset($data['api_secret']);
         $store->fill($data);
@@ -62,12 +62,6 @@ class StoreController extends Controller
         return back()->with('status', "Sync ran for {$store->name}");
     }
 
-    /**
-     * Background auto-pull, called by the open-page poller (live-refresh).
-     * Throttled so multiple tabs/users can't hammer the storefront — the actual
-     * order pull runs at most once every N seconds across the whole app.
-     * Returns JSON; never throws to the browser.
-     */
     public function autoSync(Request $r)
     {
         $throttleSeconds = 10;
@@ -75,7 +69,6 @@ class StoreController extends Controller
         if ($last && now()->diffInSeconds(\Carbon\Carbon::parse($last)) < $throttleSeconds) {
             return response()->json(['ok' => true, 'skipped' => 'throttled']);
         }
-        // Claim the window immediately so concurrent requests bail out.
         \Illuminate\Support\Facades\Cache::put('oms:autosync:last', now()->toIso8601String(), 120);
 
         $newOrders = 0;
@@ -96,7 +89,7 @@ class StoreController extends Controller
     protected function validateForm(Request $r, ?Store $store = null): array
     {
         $rules = [
-            'dfid'           => ['required','string','max:60', \Illuminate\Validation\Rule::unique('stores','dfid')->ignore($store?->id)],
+            'dfid'           => ['required', 'string', 'max:60', Rule::unique('stores', 'dfid')->ignore($store?->id)],
             'business_name'  => 'required|string|max:160',
             'domain_name'    => 'nullable|string|max:160',
             'customer_name'  => 'required|string|max:120',
@@ -107,31 +100,27 @@ class StoreController extends Controller
             'webhook_secret' => 'nullable|string',
             'is_active'      => 'nullable|boolean',
         ];
-        $data = $r->validate($rules);
-        $data['is_active'] = (bool) $r->input('is_active', true);
-        $data['webhook_secret'] = $data['webhook_secret'] ?? Str::random(48);
-        // Internal display name is "DFID · Business" — keep `name` filled for legacy code paths
-        $data['name'] = trim(($data['dfid'] ?? '').' · '.$data['business_name']);
 
-        // StorefrontClient appends /api/v1/ itself. Strip whatever
-        // doc / api / swagger suffix the user might have pasted by mistake,
-        // so paste-tolerance is high. We loop because some links are nested
-        // (e.g. ".../api/docs/v1").
-        $base = rtrim($data['base_url'], '/');
+        $data = $r->validate($rules);
+        $data['is_active']      = (bool) $r->input('is_active', true);
+        $data['webhook_secret'] = $data['webhook_secret'] ?? Str::random(48);
+        $data['name']           = trim(($data['dfid'] ?? '') . ' · ' . $data['business_name']);
+
+        $base     = rtrim($data['base_url'], '/');
         $suffixes = [
-            '/api/v1','/api/v2','/api/v3',
-            '/api/documentation','/api/docs','/api-docs',
-            '/docs/api','/docs',
-            '/swagger-ui','/swagger',
-            '/openapi.json','/openapi.yaml','/openapi',
+            '/api/v1', '/api/v2', '/api/v3',
+            '/api/documentation', '/api/docs', '/api-docs',
+            '/docs/api', '/docs',
+            '/swagger-ui', '/swagger',
+            '/openapi.json', '/openapi.yaml', '/openapi',
             '/api',
         ];
         do {
             $changed = false;
             foreach ($suffixes as $s) {
                 if (str_ends_with($base, $s)) {
-                    $base = substr($base, 0, -strlen($s));
-                    $base = rtrim($base, '/');
+                    $base    = substr($base, 0, -strlen($s));
+                    $base    = rtrim($base, '/');
                     $changed = true;
                 }
             }

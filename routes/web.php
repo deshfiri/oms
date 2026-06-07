@@ -48,6 +48,8 @@ Route::middleware(['auth'])->group(function () {
     // All Orders — master browser with advanced filtering
     Route::get('/orders',          [\App\Http\Controllers\AllOrdersController::class, 'index'])->name('orders.index');
     Route::get('/orders/export',   [\App\Http\Controllers\AllOrdersController::class, 'exportCsv'])->name('orders.export');
+    // AJAX partial for live table refresh — must come before the {order} wildcard
+    Route::get('/orders/rows',     [\App\Http\Controllers\AllOrdersController::class, 'rows'])->name('orders.rows');
 
     // Inbox legacy + Order detail
     Route::get('/inbox', [InboxController::class, 'index'])->name('inbox.index');
@@ -68,6 +70,7 @@ Route::middleware(['auth'])->group(function () {
     // ── Customer Support: Verification ───────────────────────────────
     Route::middleware('role:customer_support,admin')->group(function () {
         Route::get('/verification',                    [VerificationController::class, 'index'])->name('verification.index');
+        Route::get('/verification/rows',               [VerificationController::class, 'rows'])->name('verification.rows');
         Route::get('/verification/{order}',            [VerificationController::class, 'show'])->name('verification.show');
         Route::patch('/verification/{order}',          [VerificationController::class, 'update'])->name('verification.update');
         Route::post('/verification/{order}/items',     [VerificationController::class, 'addItem'])->name('verification.item.add');
@@ -83,6 +86,7 @@ Route::middleware(['auth'])->group(function () {
     // ── Warehouse: Processing + Pack scanning + Labels ───────────────
     Route::middleware('role:warehouse_admin,packer,admin')->group(function () {
         Route::get('/processing',             [ProcessingController::class, 'index'])->name('processing.index');
+        Route::get('/processing/rows',        [ProcessingController::class, 'rows'])->name('processing.rows');
         // Defensive: if a stale browser form posts to /processing itself, bounce
         // back to the list with a friendly message instead of a 405.
         Route::post('/processing', fn () => redirect()->route('processing.index')->with('error', 'Use the action buttons (Send to courier &amp; print labels).'));
@@ -90,6 +94,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/processing/{order}/start-packing', [ProcessingController::class, 'startPacking'])->name('processing.start-packing');
 
         Route::get('/packing',                     [PackingController::class, 'index'])->name('packing.index');
+        Route::get('/packing/rows',                [PackingController::class, 'rows'])->name('packing.rows');
         Route::post('/packing/{order}/mark-packed',[PackingController::class, 'markPacked'])->name('packing.mark-packed');
         Route::post('/packing/bulk-mark-packed',   [PackingController::class, 'bulkMarkPacked'])->name('packing.bulk-mark-packed');
 
@@ -102,17 +107,20 @@ Route::middleware(['auth'])->group(function () {
     // ── Dispatch & Tracking ───────────────────────────────────────────
     Route::middleware('role:dispatcher,admin')->group(function () {
         Route::get('/dispatch',                   [DispatchController::class, 'index'])->name('dispatch.index');
+        Route::get('/dispatch/rows',              [DispatchController::class, 'rows'])->name('dispatch.rows');
         Route::post('/dispatch/handover/{order}', [DispatchController::class, 'handover'])->name('dispatch.handover');
         Route::post('/dispatch/bulk-handover',    [DispatchController::class, 'bulkHandover'])->name('dispatch.bulk-handover');
         Route::get('/dispatch/csv',               [DispatchController::class, 'exportCsv'])->name('dispatch.csv');
         Route::post('/scan/dispatch',             [ScanController::class, 'dispatch'])->name('scan.dispatch');
         Route::get('/tracking',                   [TrackingController::class, 'index'])->name('tracking.index');
+        Route::get('/tracking/rows',              [TrackingController::class, 'rows'])->name('tracking.rows');
         Route::get('/tracking/{consignment}',     [TrackingController::class, 'show'])->name('tracking.show');
     });
 
     // ── Returns / Exchanges / Damages / Lost ─────────────────────────
     Route::middleware('role:returns_clerk,admin')->group(function () {
         Route::get('/returns',                    [ReturnsController::class, 'index'])->name('returns.index');
+        Route::get('/returns/rows',               [ReturnsController::class, 'rows'])->name('returns.rows');
         Route::post('/returns/start',             [ReturnsController::class, 'start'])->name('returns.start');
         Route::post('/returns/{order}/receive',   [ReturnsController::class, 'receive'])->name('returns.receive');
         Route::post('/returns/{order}/inspect',   [ReturnsController::class, 'inspect'])->name('returns.inspect');

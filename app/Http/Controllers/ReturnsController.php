@@ -30,6 +30,27 @@ class ReturnsController extends Controller
         return view('returns.index', compact('orders', 'counts'));
     }
 
+    public function rows(Request $r)
+    {
+        $states = [
+            OrderStateMachine::RETURN_PENDING,
+            OrderStateMachine::RETURNED,
+            OrderStateMachine::AWAITING_RETURN_PRODUCT,
+        ];
+        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+            ->whereIn('status', $states)
+            ->when($r->status, fn($q,$s) => $q->where('status', $s))
+            ->latest('return_pending_at')
+            ->paginate(30)
+            ->withPath(route('returns.index'))
+            ->appends($r->except('page'));
+        $counts = OrderMirror::query()->whereIn('status', $states)
+            ->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
+        return response()->json([
+            'html' => view('returns._region', compact('orders', 'counts'))->render(),
+        ]);
+    }
+
     /**
      * Warehouse-initiated return: take a dispatched/shipped/out-for-delivery/
      * partial/delivered order and move it into Return Pending. From there it's

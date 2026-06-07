@@ -1,30 +1,31 @@
 @php
     use App\Services\Orders\OrderStateMachine as S;
-    // Helper: build a query-string preserving current filters but overriding keys.
     $qs = fn(array $over = []) => '?' . http_build_query(array_merge(request()->except('page'), $over));
     $activeStatuses = collect(is_array(request('status')) ? request('status') : array_filter(explode(',', (string) request('status'))));
 @endphp
 <x-app-layout>
     @section('title', 'All Orders')
-    <div class="admin-page-header">
-        <div><h1>All Orders</h1><p class="sub">{{ number_format($totalCount) }} order(s) match the current filters across every store.</p></div>
-        <a href="{{ route('orders.export', request()->except('page')) }}" class="btn btn-outline">Export CSV</a>
-    </div>
 
-    {{-- ── Status chips: count per stage, click to filter ────────────── --}}
-    <div class="admin-card" style="margin-bottom:14px">
-        <div class="admin-card-body" style="display:flex;flex-wrap:wrap;gap:6px">
-            <a href="{{ route('orders.index') . $qs(['status' => null]) }}"
-               class="pill {{ $activeStatuses->isEmpty() ? 'pill-active' : 'pill-default' }}"
-               style="text-decoration:none;cursor:pointer">All <strong>{{ number_format($totalCount) }}</strong></a>
-            @foreach($statuses as $st)
-                @php $n = $statusCounts[$st] ?? 0; @endphp
-                <a href="{{ route('orders.index') . $qs(['status' => $st]) }}"
-                   class="pill pill-{{ $st }} {{ $activeStatuses->contains($st) ? 'pill-active' : '' }}"
-                   style="text-decoration:none;cursor:pointer;{{ $n === 0 ? 'opacity:.45' : '' }}">
-                    {{ $labels[$st] }} <strong>{{ $n }}</strong>
-                </a>
-            @endforeach
+    @push('head')
+    <style>
+        @keyframes orders-spin { to { transform: rotate(360deg); } }
+        .orders-sync-spinner { display:inline-block;width:11px;height:11px;border:2px solid var(--a-accent);border-top-color:transparent;border-radius:50%;animation:orders-spin .7s linear infinite;vertical-align:middle }
+    </style>
+    @endpush
+
+    <div class="admin-page-header">
+        <div>
+            <h1>All Orders</h1>
+            <p class="sub">{{ number_format($totalCount) }} order(s) match the current filters across every store.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+            {{-- Sync status indicator --}}
+            <span id="orders-sync-indicator" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--a-text-2);opacity:0;transition:opacity .25s">
+                <span id="orders-sync-spinner" class="orders-sync-spinner" style="display:none"></span>
+                <span id="orders-sync-dot" style="width:7px;height:7px;border-radius:50%;background:var(--a-text-3);flex-shrink:0;transition:background .3s"></span>
+                <span id="orders-sync-text"></span>
+            </span>
+            <a href="{{ route('orders.export', request()->except('page')) }}" class="btn btn-outline">Export CSV</a>
         </div>
     </div>
 
@@ -77,67 +78,130 @@
         </div>
     </form>
 
-    {{-- ── Results table ─────────────────────────────────────────────── --}}
-    <div class="admin-card">
-        <div class="admin-card-head">
-            <x-admin.section-head icon="cart" title="Orders" :description="number_format($orders->total()).' result(s)'"/>
-            <form method="GET" style="display:flex;gap:6px;align-items:center">
-                @foreach(request()->except(['per_page','page']) as $k => $v)
-                    @if(is_array($v)) @foreach($v as $vv)<input type="hidden" name="{{ $k }}[]" value="{{ $vv }}">@endforeach
-                    @else <input type="hidden" name="{{ $k }}" value="{{ $v }}"> @endif
-                @endforeach
-                <span style="font-size:11px;color:var(--a-text-2)">Per page</span>
-                <select class="input" name="per_page" style="width:auto" onchange="this.form.submit()">
-                    @foreach([25,50,100,200] as $pp)<option value="{{ $pp }}" @selected($perPage===$pp)>{{ $pp }}</option>@endforeach
-                </select>
-            </form>
-        </div>
-
-        @if($orders->isEmpty())
-            <x-admin.empty icon="search" title="No orders match" description="Adjust or clear the filters above."/>
-        @else
-            @php
-                $th = function($key, $label, $align = 'left') use ($sort, $dir, $qs) {
-                    $next = ($sort === $key && $dir === 'asc') ? 'desc' : 'asc';
-                    $arrow = $sort === $key ? ($dir === 'asc' ? '▲' : '▼') : '';
-                    return '<th style="text-align:'.$align.'"><a href="'.route('orders.index').$qs(['sort'=>$key,'dir'=>$next]).'" style="text-decoration:none;color:inherit;white-space:nowrap">'.$label.' <span style="color:var(--a-accent);font-size:9px">'.$arrow.'</span></a></th>';
-                };
-            @endphp
-            <div class="atable-wrap">
-                <table class="atable">
-                    <thead><tr>
-                        {!! $th('order','Order') !!}
-                        <th>Store</th>
-                        {!! $th('customer','Customer') !!}
-                        <th>Courier / Consignment</th>
-                        {!! $th('placed','Placed') !!}
-                        {!! $th('total','Total','right') !!}
-                        {!! $th('status','Status') !!}
-                        <th></th>
-                    </tr></thead>
-                    <tbody>
-                        @foreach($orders as $o)
-                            @php $c = $o->consignments->last(); @endphp
-                            <tr>
-                                <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a>
-                                    @if($o->placed_by_user_id)<div style="font-size:10px;color:var(--a-text-3)">OMS-placed</div>@endif</td>
-                                <td style="font-size:12px"><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
-                                <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
-                                <td style="font-size:12px">
-                                    @if($c)<strong>{{ strtoupper($c->courier_slug) }}</strong><div style="font-family:ui-monospace,monospace;font-size:11.5px;font-weight:600">{{ $c->consignment_id ?? '—' }}</div>@if($c->tracking_code)<div style="font-family:ui-monospace,monospace;font-size:10px;color:var(--a-text-3)">{{ $c->tracking_code }}</div>@endif @else <span style="color:var(--a-text-3)">—</span>@endif
-                                </td>
-                                <td style="white-space:nowrap;font-size:12px">{{ optional($o->placed_at)->format('d M Y') ?? '—' }}<div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->placed_at)->format('H:i') }}</div></td>
-                                <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total) }}</td>
-                                <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>
-                                <td style="text-align:right"><a href="{{ route('orders.show', $o) }}" class="btn btn-outline btn-sm">Open</a></td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            <div class="admin-pagination">{{ $orders->links() }}</div>
-        @endif
+    {{-- ── Live region: status chips + results table ────────────────── --}}
+    {{-- This div is replaced in-place by the AJAX poller below.        --}}
+    <div id="orders-live-region">
+        @include('orders._table')
     </div>
 
-    <x-live-refresh scope="orders"/>
+    @push('scripts')
+    <script>
+    (function () {
+        var POLL_MS    = 5000;
+        var sigUrl     = '{{ route('poll.signature') }}?scope=orders';
+        var rowsBase   = '{{ route('orders.rows') }}';
+
+        var region     = document.getElementById('orders-live-region');
+        var indicator  = document.getElementById('orders-sync-indicator');
+        var spinner    = document.getElementById('orders-sync-spinner');
+        var dot        = document.getElementById('orders-sync-dot');
+        var statusText = document.getElementById('orders-sync-text');
+
+        var lastSig  = null;
+        var busy     = false;
+        var timer    = null;
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+        function timeStr() {
+            var d = new Date();
+            return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        }
+
+        function showSyncing() {
+            indicator.style.opacity = '1';
+            spinner.style.display   = 'inline-block';
+            dot.style.display       = 'none';
+            dot.style.background    = 'var(--a-accent)';
+            statusText.textContent  = 'Syncing…';
+        }
+
+        function showDone() {
+            spinner.style.display  = 'none';
+            dot.style.display      = 'inline-block';
+            dot.style.background   = '#22c55e';
+            statusText.textContent = 'Last synced: ' + timeStr();
+            indicator.style.opacity = '1';
+        }
+
+        function showError() {
+            spinner.style.display  = 'none';
+            dot.style.display      = 'inline-block';
+            dot.style.background   = '#ef4444';
+            statusText.textContent = 'Sync failed';
+            indicator.style.opacity = '1';
+        }
+
+        async function poll() {
+            if (busy || document.hidden) return;
+            busy = true;
+            showSyncing();
+
+            try {
+                // Step 1 — get change signature (also triggers throttled storefront pull).
+                var sigResp = await fetch(sigUrl, {
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
+                if (!sigResp.ok) throw new Error('sig ' + sigResp.status);
+                var sigJson = await sigResp.json();
+                var sig = sigJson.sig || null;
+
+                // Step 2 — refresh table only when something changed.
+                if (sig && lastSig !== null && sig !== lastSig) {
+                    var params = new URLSearchParams(window.location.search);
+                    var rowsUrl = rowsBase + (params.toString() ? '?' + params.toString() : '');
+
+                    var rowsResp = await fetch(rowsUrl, {
+                        headers: {
+                            'Accept': 'text/html',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        cache: 'no-store'
+                    });
+                    if (!rowsResp.ok) throw new Error('rows ' + rowsResp.status);
+
+                    var html = await rowsResp.text();
+                    region.innerHTML = html;
+                }
+
+                lastSig = sig;
+                showDone();
+            } catch (e) {
+                console.warn('[orders-sync] poll failed', e);
+                showError();
+            } finally {
+                busy = false;
+            }
+        }
+
+        function startTimer() {
+            if (timer) return;
+            timer = setInterval(poll, POLL_MS);
+        }
+
+        function stopTimer() {
+            clearInterval(timer);
+            timer = null;
+        }
+
+        // Pause polling when tab is hidden; resume (with immediate poll) when visible.
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                stopTimer();
+            } else {
+                poll();
+                startTimer();
+            }
+        });
+
+        // Clean up on navigation.
+        window.addEventListener('beforeunload', stopTimer);
+
+        // Kick off immediately on page load.
+        poll();
+        startTimer();
+    })();
+    </script>
+    @endpush
 </x-app-layout>

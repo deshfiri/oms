@@ -38,5 +38,17 @@
             <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $store->is_active ?? true))> Active</label>
             <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-dark">Save</button><a href="{{ route('stores.index') }}" class="btn btn-outline">Cancel</a></div>
         </div>
+
+        @if($store->exists)
+        <div class="admin-card-head" style="border-top:1px solid var(--a-border)"><x-admin.section-head icon="truck" title="Courier configuration" description="Read-only — configured in the storefront admin, not here"/></div>
+        <div class="admin-card-body">
+            <p style="font-size:13px;color:var(--a-text-2);margin:0">
+                The courier used for dispatch is controlled by the storefront's settings
+                (<code>settings.group = 'couriers'</code>, <code>settings.key = 'default_courier'</code>).
+                OMS reads this value automatically when an order is dispatched — no courier selection is needed here.
+                If dispatch is using the wrong courier, update the setting in the storefront admin panel.
+            </p>
+        </div>
+        @endif
     </form>
 </x-app-layout>

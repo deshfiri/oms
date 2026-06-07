@@ -28,6 +28,21 @@ class DispatchController extends Controller
         return view('dispatch.index', compact('orders', 'courierCaps'));
     }
 
+    public function rows(Request $r)
+    {
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'consignments')
+            ->where('status', OrderStateMachine::PACKED)
+            ->latest('packed_at')
+            ->get()
+            ->groupBy(fn ($o) => optional($o->consignments->last())->courier_slug ?? 'manual');
+        $courierCaps = collect(\App\Services\Couriers\CourierManager::ADAPTERS)
+            ->mapWithKeys(fn ($cls, $slug) => [$slug => app($cls)->capabilities()])
+            ->all();
+        return response()->json([
+            'html' => view('dispatch._groups', compact('orders', 'courierCaps'))->render(),
+        ]);
+    }
+
     public function handover(Request $r, OrderMirror $order, OrderStateMachine $sm)
     {
         try {

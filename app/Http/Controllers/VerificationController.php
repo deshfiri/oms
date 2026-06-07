@@ -25,6 +25,27 @@ class VerificationController extends Controller
         return view('verification.index', compact('orders','stores'));
     }
 
+    public function rows(Request $r)
+    {
+        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+            ->where('status', OrderStateMachine::PENDING_VERIFICATION)
+            ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
+                $x->where('order_number','like',"%$t%")
+                  ->orWhere('customer_name','like',"%$t%")
+                  ->orWhere('customer_phone','like',"%$t%");
+            }))
+            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->latest('placed_at')
+            ->paginate(25)
+            ->withPath(route('verification.index'))
+            ->appends($r->except('page'));
+        return response()->json([
+            'tbody'      => view('verification._rows', compact('orders'))->render(),
+            'pagination' => (string) $orders->links(),
+            'total'      => $orders->total(),
+        ]);
+    }
+
     public function show(OrderMirror $order)
     {
         abort_unless($order->status === OrderStateMachine::PENDING_VERIFICATION, 404);

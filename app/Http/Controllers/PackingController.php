@@ -29,6 +29,29 @@ class PackingController extends Controller
         return view('packing.index', compact('orders','stores'));
     }
 
+    public function rows(Request $r)
+    {
+        $orders = OrderMirror::with('store:id,dfid,business_name,name','consignments','packer:id,name')
+            ->where('status', OrderStateMachine::PROCESSING)
+            ->whereHas('consignments')
+            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
+                $x->where('order_number','like',"%$t%")
+                  ->orWhere('customer_name','like',"%$t%")
+                  ->orWhere('customer_phone','like',"%$t%")
+                  ->orWhereHas('consignments', fn($c) => $c->where('tracking_code','like',"%$t%")->orWhere('consignment_id','like',"%$t%"));
+            }))
+            ->latest('processing_at')
+            ->paginate(30)
+            ->withPath(route('packing.index'))
+            ->appends($r->except('page'));
+        return response()->json([
+            'tbody'      => view('packing._rows', compact('orders'))->render(),
+            'pagination' => (string) $orders->links(),
+            'total'      => $orders->total(),
+        ]);
+    }
+
     /** Mark a single order Packed (after physically sealing the parcel). */
     public function markPacked(OrderMirror $order, OrderStateMachine $sm)
     {

@@ -1,7 +1,7 @@
 <x-app-layout>
     @section('title', 'Processing')
     <div class="admin-page-header">
-        <div><h1>Processing</h1><p class="sub">{{ $orders->total() }} confirmed order(s) ready to send to the courier. Booking a courier prints the label and moves the order to Packing.</p></div>
+        <div><h1>Processing</h1><p class="sub"><span id="proc-total">{{ $orders->total() }}</span> confirmed order(s) ready to send to the courier. Booking a courier prints the label and moves the order to Packing.</p></div>
     </div>
 
     <form method="GET" class="admin-card" style="margin-bottom:14px">
@@ -17,7 +17,6 @@
 
     <form method="POST" id="bulk-form" action="{{ route('processing.bulk-pack') }}">
         @csrf
-        {{-- Bulk action bar — appears when one or more rows are selected --}}
         <div class="admin-card" id="bulk-bar" style="display:none;background:var(--a-surface-2)">
             <div class="admin-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                 <strong id="sel-count" style="font-size:14px"></strong>
@@ -39,27 +38,12 @@
                                 <th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Aged</th><th></th>
                             </tr>
                         </thead>
-                        <tbody>
-                            @foreach($orders as $o)
-                                <tr>
-                                    <td><input type="checkbox" name="order_ids[]" value="{{ $o->id }}" class="row-sel" style="accent-color:var(--a-accent)"></td>
-                                    <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a></td>
-                                    <td><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
-                                    <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->shipping_city }}</div></td>
-                                    <td>{{ $o->items()->sum('qty') }}</td>
-                                    <td style="font-size:12px">{{ optional($o->processing_at)->diffForHumans() }}</td>
-                                    <td style="text-align:right">
-                                        <div style="display:inline-flex;gap:4px;justify-content:flex-end">
-                                            <a href="{{ route('orders.show', $o) }}" class="btn btn-outline btn-sm">View</a>
-                                            <button type="submit" formaction="{{ route('processing.start-packing', $o) }}" class="btn btn-dark btn-sm">Send to courier</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
+                        <tbody id="proc-tbody">
+                            @include('processing._rows')
                         </tbody>
                     </table>
                 </div>
-                <div class="admin-pagination">{{ $orders->links() }}</div>
+                <div id="proc-pagination" class="admin-pagination">{{ $orders->links() }}</div>
             @endif
         </div>
     </form>
@@ -67,28 +51,40 @@
     @push('scripts')
     <script>
     (function(){
-        const form = document.getElementById('bulk-form');
-        if (!form) return;
-        const bar  = document.getElementById('bulk-bar');
-        const cnt  = document.getElementById('sel-count');
-        const all  = document.getElementById('sel-all');
         function refresh(){
+            const form = document.getElementById('bulk-form');
+            const bar  = document.getElementById('bulk-bar');
+            const cnt  = document.getElementById('sel-count');
+            if (!form || !bar) return;
             const n = form.querySelectorAll('.row-sel:checked').length;
             bar.style.display = n ? '' : 'none';
-            cnt.textContent = n + ' selected';
+            if (cnt) cnt.textContent = n + ' selected';
         }
-        all?.addEventListener('change', () => { form.querySelectorAll('.row-sel').forEach(c => c.checked = all.checked); refresh(); });
-        form.addEventListener('change', e => { if (e.target.classList.contains('row-sel')) refresh(); });
-        // The bulk "Send to courier & print" button needs at least one row.
-        form.addEventListener('submit', e => {
-            const isBulk = !e.submitter || !e.submitter.hasAttribute('formaction'); // bulk button has no formaction
-            if (isBulk && !form.querySelectorAll('.row-sel:checked').length) {
-                e.preventDefault();
-                alert('Select at least one order first.');
+        // Delegated — survives tbody replacement
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'sel-all') {
+                document.getElementById('bulk-form')?.querySelectorAll('.row-sel').forEach(c => c.checked = e.target.checked);
+                refresh();
+            } else if (e.target.classList.contains('row-sel')) {
+                refresh();
+            }
+        });
+        document.addEventListener('submit', function(e) {
+            if (e.target.id !== 'bulk-form') return;
+            const isBulk = !e.submitter || !e.submitter.hasAttribute('formaction');
+            if (isBulk && !e.target.querySelectorAll('.row-sel:checked').length) {
+                e.preventDefault(); alert('Select at least one order first.');
             }
         });
     })();
     </script>
     @endpush
-    <x-live-refresh scope="processing"/>
+
+    <x-order-sync
+        scope="processing"
+        :rows-url="route('processing.rows')"
+        mode="tbody"
+        tbody-id="proc-tbody"
+        pagination-id="proc-pagination"
+        total-id="proc-total"/>
 </x-app-layout>

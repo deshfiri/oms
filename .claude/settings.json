@@ -17,7 +17,13 @@
       "Bash(findstr /i \"courier\")",
       "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\app\" /b)",
       "Bash(ls \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\docs\" 2>&1)",
-      "Read(///wsl.localhost/Ubuntu/home/ahsan/projects/dfoms/**)"
+      "Read(///wsl.localhost/Ubuntu/home/ahsan/projects/dfoms/**)",
+      "Bash(rm \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\database\\\\\\\\migrations\\\\\\\\2026_06_07_000001_add_courier_config_to_stores.php\" 2>&1 && echo \"deleted\")",
+      "Read(//home/ahsan/projects/dfoms/**)",
+      "Bash(xargs grep -l \"courier_enabled\\\\|courier_credentials\")"
+    ],
+    "additionalDirectories": [
+      "\\\\wsl.localhost\\Ubuntu\\home\\ahsan\\projects\\dfoms\\database\\migrations"
     ]
   }
 }

@@ -1,7 +1,7 @@
 <x-app-layout>
     @section('title', 'Pending Order')
     <div class="admin-page-header">
-        <div><h1>Pending Order</h1><p class="sub">{{ $orders->total() }} order(s) awaiting customer confirmation.</p></div>
+        <div><h1>Pending Order</h1><p class="sub"><span id="verf-total">{{ $orders->total() }}</span> order(s) awaiting customer confirmation.</p></div>
     </div>
 
     <div class="admin-card">
@@ -22,7 +22,6 @@
         @else
             <form method="POST" id="bulk-form">
                 @csrf
-                {{-- Bulk action bar — appears when rows are selected (§16) --}}
                 <div class="admin-card-body" id="bulk-bar" style="display:none;background:var(--a-surface-2);border-bottom:1px solid var(--a-border);align-items:center;gap:10px;flex-wrap:wrap">
                     <strong id="sel-count" style="font-size:14px"></strong>
                     <button type="button" class="btn btn-dark btn-sm" onclick="submitBulk('{{ route('verification.bulk-confirm') }}')">Confirm selected</button>
@@ -41,41 +40,38 @@
                             <th style="width:36px"><input type="checkbox" id="sel-all" style="accent-color:var(--a-accent)"></th>
                             <th>Order</th><th>Store</th><th>Customer</th><th>Placed</th><th style="text-align:right">Total</th><th></th>
                         </tr></thead>
-                        <tbody>
-                        @foreach($orders as $o)
-                            <tr>
-                                <td><input type="checkbox" name="order_ids[]" value="{{ $o->id }}" class="row-sel" style="accent-color:var(--a-accent)"></td>
-                                <td><a href="{{ route('verification.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a></td>
-                                <td><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
-                                <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
-                                <td>{{ optional($o->placed_at)->diffForHumans() }}</td>
-                                <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total) }}</td>
-                                <td style="text-align:right"><a href="{{ route('verification.show', $o) }}" class="btn btn-dark btn-sm">Open</a></td>
-                            </tr>
-                        @endforeach
+                        <tbody id="verf-tbody">
+                            @include('verification._rows')
                         </tbody>
                     </table>
                 </div>
             </form>
-            <div class="admin-pagination">{{ $orders->links() }}</div>
+            <div id="verf-pagination" class="admin-pagination">{{ $orders->links() }}</div>
         @endif
     </div>
 
     @push('scripts')
     <script>
     (function(){
-        const form = document.getElementById('bulk-form');
-        if (!form) return;
-        const bar = document.getElementById('bulk-bar');
-        const cnt = document.getElementById('sel-count');
-        const all = document.getElementById('sel-all');
         function refresh(){
+            const form = document.getElementById('bulk-form');
+            const bar  = document.getElementById('bulk-bar');
+            const cnt  = document.getElementById('sel-count');
+            if (!form || !bar) return;
             const n = form.querySelectorAll('.row-sel:checked').length;
             bar.style.display = n ? 'flex' : 'none';
-            cnt.textContent = n + ' selected';
+            if (cnt) cnt.textContent = n + ' selected';
         }
-        all?.addEventListener('change', () => { form.querySelectorAll('.row-sel').forEach(c => c.checked = all.checked); refresh(); });
-        form.addEventListener('change', e => { if (e.target.classList.contains('row-sel')) refresh(); });
+        // Delegated on document — survives tbody replacement by AJAX refresh
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'sel-all') {
+                const form = document.getElementById('bulk-form');
+                form?.querySelectorAll('.row-sel').forEach(c => c.checked = e.target.checked);
+                refresh();
+            } else if (e.target.classList.contains('row-sel')) {
+                refresh();
+            }
+        });
     })();
     function submitBulk(url){
         const form = document.getElementById('bulk-form');
@@ -85,5 +81,11 @@
     </script>
     @endpush
 
-    <x-live-refresh scope="verification"/>
+    <x-order-sync
+        scope="verification"
+        :rows-url="route('verification.rows')"
+        mode="tbody"
+        tbody-id="verf-tbody"
+        pagination-id="verf-pagination"
+        total-id="verf-total"/>
 </x-app-layout>

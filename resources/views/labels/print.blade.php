@@ -1,3 +1,4 @@
+@php $is3x3 = ($size ?? '2x3') === '3x3'; @endphp
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,12 +11,13 @@
         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { background:#f5f6f8; margin:0; padding:14px; }
 
-    .toolbar { max-width: 360px; margin:0 auto 16px; display:flex; gap:8px; }
+    .toolbar { max-width: 360px; margin:0 auto 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .toolbar button, .toolbar a {
         font-size:13px;font-weight:600;padding:8px 16px;border-radius:6px;border:1.5px solid #0d0d0d;
         background:#0d0d0d;color:#fff;text-decoration:none;cursor:pointer;
     }
     .toolbar a.outline { background:#fff;color:#0d0d0d }
+    .toolbar .size-badge { font-size:11px;font-weight:700;color:#555;background:#e8e8e8;padding:4px 10px;border-radius:99px; }
 
     .lbl {
         width: 2in; height: 3in; background:#fff;
@@ -108,11 +110,38 @@
         .toolbar { display:none; }
         .lbl { border:none; margin:0; }
     }
+
+    @if ($is3x3)
+    /* ── 3 × 3 inch overrides — square format, one extra inch of width ── */
+    @page { size: 3in 3in; margin: 0; }
+    .lbl { width: 3in; }
+    .brand .biz { max-width: 200px; }
+    .lbl-to { grid-template-columns: 1fr 80px; }
+    .lbl-to .nm   { font-size: 12.5px; }
+    .lbl-to .ph   { font-size: 10.5px; }
+    .lbl-to .addr { font-size: 9.5px; }
+    .lbl-to .loc  { font-size: 9.5px; }
+    .lbl-to .qr   { width: 80px; }
+    .lbl-to .qr img  { width: 75px; height: 75px; }
+    .lbl-to .qr .cid { width: 80px; font-size: 7px; }
+    .mid-head  { font-size: 8px; }
+    .mid-row   { font-size: 9px; }
+    .mid-total { font-size: 10.5px; }
+    .ft img    { height: 28px; }
+    .ft .code  { font-size: 11px; letter-spacing: 1.8px; }
+    @endif
 </style>
 </head>
 <body>
+    @php
+        $switchSize  = $is3x3 ? '2x3' : '3x3';
+        $switchLabel = $is3x3 ? '2&quot; × 3&quot;' : '3&quot; × 3&quot;';
+        $switchUrl   = request()->fullUrlWithQuery(['size' => $switchSize]);
+    @endphp
     <div class="toolbar">
         <button onclick="window.print()">Print ({{ $labels->count() }})</button>
+        <span class="size-badge">{{ $is3x3 ? '3" × 3"' : '2" × 3"' }}</span>
+        <a href="{{ $switchUrl }}" class="outline">Switch to {!! $switchLabel !!}</a>
         <a href="{{ url()->previous() }}" class="outline">← Back</a>
     </div>
 

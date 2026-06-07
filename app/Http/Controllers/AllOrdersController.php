@@ -28,32 +28,17 @@ class AllOrdersController extends Controller
 
     public function index(Request $r)
     {
-        $query = $this->filtered($r);
+        return view('orders.all', $this->buildData($r));
+    }
 
-        // Sort
-        $sort = array_key_exists($r->sort, self::SORTS) ? $r->sort : 'placed';
-        $dir  = $r->dir === 'asc' ? 'asc' : 'desc';
-        $query->orderBy(self::SORTS[$sort], $dir);
-
-        $perPage = in_array((int) $r->per_page, [25, 50, 100, 200], true) ? (int) $r->per_page : 50;
-        $orders  = $query->with('store:id,dfid,business_name,name', 'consignments')
-            ->paginate($perPage)->withQueryString();
-
-        // Status counts across the *unfiltered-by-status* set (so chips show totals
-        // that respect the other filters but not the status filter itself).
-        $countQuery = $this->filtered($r, ignoreStatus: true);
-        $statusCounts = (clone $countQuery)
-            ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
-        $totalCount = (clone $countQuery)->count();
-
-        $stores   = Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
-        $couriers = array_keys(CourierManager::ADAPTERS);
-        $statuses = S::STATUSES;
-        $labels   = S::LABELS;
-
-        return view('orders.all', compact(
-            'orders','statusCounts','totalCount','stores','couriers','statuses','labels','sort','dir','perPage',
-        ));
+    /**
+     * AJAX endpoint for the live-sync table refresh.
+     * Returns only the _table partial (status chips + results card).
+     * Accepts the same query params as index(); pagination links point back to /orders.
+     */
+    public function rows(Request $r)
+    {
+        return view('orders._table', $this->buildData($r));
     }
 
     public function exportCsv(Request $r): StreamedResponse
@@ -75,6 +60,39 @@ class AllOrdersController extends Controller
             }
             fclose($h);
         }, 'orders-'.now()->format('Ymd-Hi').'.csv');
+    }
+
+    /** Build view data shared between index() and rows(). */
+    private function buildData(Request $r): array
+    {
+        $query = $this->filtered($r);
+
+        $sort = array_key_exists($r->sort, self::SORTS) ? $r->sort : 'placed';
+        $dir  = $r->dir === 'asc' ? 'asc' : 'desc';
+        $query->orderBy(self::SORTS[$sort], $dir);
+
+        $perPage = in_array((int) $r->per_page, [25, 50, 100, 200], true) ? (int) $r->per_page : 50;
+
+        // Pagination links always point to /orders, regardless of whether this
+        // request came from the main page or the AJAX /orders/rows endpoint.
+        $orders = $query->with('store:id,dfid,business_name,name', 'consignments')
+            ->paginate($perPage)
+            ->withPath(route('orders.index'))
+            ->appends($r->except('page'));
+
+        // Status counts across the *unfiltered-by-status* set so chips show totals
+        // that respect the other filters but not the status filter itself.
+        $countQuery   = $this->filtered($r, ignoreStatus: true);
+        $statusCounts = (clone $countQuery)
+            ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+        $totalCount = (clone $countQuery)->count();
+
+        $stores   = Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $couriers = array_keys(CourierManager::ADAPTERS);
+        $statuses = S::STATUSES;
+        $labels   = S::LABELS;
+
+        return compact('orders','statusCounts','totalCount','stores','couriers','statuses','labels','sort','dir','perPage');
     }
 
     /** Build the filtered base query from the request. */

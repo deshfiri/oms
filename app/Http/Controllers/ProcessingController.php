@@ -28,6 +28,28 @@ class ProcessingController extends Controller
         return view('processing.index', compact('orders','stores'));
     }
 
+    public function rows(Request $r)
+    {
+        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+            ->where('status', OrderStateMachine::PROCESSING)
+            ->whereDoesntHave('consignments')
+            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
+                $x->where('order_number','like',"%$t%")
+                  ->orWhere('customer_name','like',"%$t%")
+                  ->orWhere('customer_phone','like',"%$t%");
+            }))
+            ->latest('processing_at')
+            ->paginate(30)
+            ->withPath(route('processing.index'))
+            ->appends($r->except('page'));
+        return response()->json([
+            'tbody'      => view('processing._rows', compact('orders'))->render(),
+            'pagination' => (string) $orders->links(),
+            'total'      => $orders->total(),
+        ]);
+    }
+
     /**
      * Bulk courier entry: submit each parcel to the courier through the
      * storefront's Courier API, store the consignment, and render batch labels.

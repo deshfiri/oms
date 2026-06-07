@@ -12,28 +12,29 @@ class SteadfastCourier implements CourierAdapter
 
     public function capabilities(): array
     {
-        // Steadfast returns a real consignment id AND a tracking code (+URL).
         return ['provides_consignment'=>true, 'provides_tracking'=>true, 'direct_api'=>true, 'manual_entry'=>false];
     }
 
     public function bookConsignment(OrderMirror $order, array $opts = []): array
     {
-        $apiKey    = config('couriers.steadfast.api_key');
-        $secret    = config('couriers.steadfast.secret');
+        // Per-store credentials take priority; fall back to global config.
+        $storeCreds = $order->store ? $order->store->credentialsFor('steadfast') : [];
+        $apiKey     = $storeCreds['api_key']    ?? config('couriers.steadfast.api_key');
+        $secret     = $storeCreds['secret_key'] ?? config('couriers.steadfast.secret');
 
         if (! $apiKey || ! $secret) {
-            // No keys ⇒ no real booking. We do NOT invent an id — the caller
-            // creates a pending consignment instead, so nothing fake is shown.
-            throw new CourierUnavailableException('Steadfast API keys not configured in OMS — book through the store website or enter the consignment manually.');
+            throw new CourierUnavailableException(
+                'Steadfast credentials not configured — add them in Stores → Edit → Courier credentials, or set STEADFAST_API_KEY / STEADFAST_SECRET in .env.'
+            );
         }
 
         $payload = [
-            'invoice'        => $order->order_number,
-            'recipient_name' => $order->shipping_name,
-            'recipient_phone'=> $order->shipping_phone,
+            'invoice'           => $order->order_number,
+            'recipient_name'    => $order->shipping_name,
+            'recipient_phone'   => $order->shipping_phone,
             'recipient_address' => $order->shipping_address_line.', '.$order->shipping_area.', '.$order->shipping_city,
-            'cod_amount'     => $opts['cod_amount'] ?? ($order->payment_method === 'cod' ? $order->grand_total : 0),
-            'note'           => $opts['note'] ?? null,
+            'cod_amount'        => $opts['cod_amount'] ?? ($order->payment_method === 'cod' ? $order->grand_total : 0),
+            'note'              => $opts['note'] ?? null,
         ];
 
         $resp = Http::withHeaders([
@@ -63,20 +64,20 @@ class SteadfastCourier implements CourierAdapter
     public function normalizeStatus(string $native): string
     {
         return match (strtolower($native)) {
-            'in_review','pending'     => 'booked',
-            'cancelled'               => 'delivery_failed',
-            'on_hold'                 => 'in_transit',
-            'delivered'               => 'delivered',
-            'partial_delivered'       => 'partial_delivered',
-            'partially_delivered'     => 'partial_delivered',
-            'unknown'                 => 'in_transit',
-            'pickup_pending'          => 'booked',
-            'pickup_cancelled'        => 'delivery_failed',
-            'delivery_pending'        => 'out_for_delivery',
-            'pickup_assigned'         => 'picked_up',
-            'in_hub'                  => 'hub_received',
-            'in_transit'              => 'in_transit',
-            default                   => $native,
+            'in_review','pending'         => 'booked',
+            'cancelled'                   => 'delivery_failed',
+            'on_hold'                     => 'in_transit',
+            'delivered'                   => 'delivered',
+            'partial_delivered',
+            'partially_delivered'         => 'partial_delivered',
+            'unknown'                     => 'in_transit',
+            'pickup_pending'              => 'booked',
+            'pickup_cancelled'            => 'delivery_failed',
+            'delivery_pending'            => 'out_for_delivery',
+            'pickup_assigned'             => 'picked_up',
+            'in_hub'                      => 'hub_received',
+            'in_transit'                  => 'in_transit',
+            default                       => $native,
         };
     }
 }

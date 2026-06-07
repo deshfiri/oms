@@ -21,6 +21,22 @@ class TrackingController extends Controller
         return view('tracking.index', compact('inTransit','exceptions'));
     }
 
+    public function rows(Request $r)
+    {
+        $inTransit = CourierConsignment::with('order.store:id,dfid,business_name,name')
+            ->whereIn('latest_status', ['booked','picked_up','in_transit','hub_received','out_for_delivery'])
+            ->latest('booked_at')
+            ->paginate(40)
+            ->withPath(route('tracking.index'))
+            ->appends($r->except('page'));
+        $exceptions = CourierConsignment::with('order.store:id,dfid,business_name,name')
+            ->whereIn('latest_status', ['delivery_failed','return_initiated','returned','lost'])
+            ->latest('booked_at')->limit(50)->get();
+        return response()->json([
+            'html' => view('tracking._tables', compact('inTransit', 'exceptions'))->render(),
+        ]);
+    }
+
     public function show(CourierConsignment $consignment)
     {
         $consignment->load('order.store', 'events');

@@ -10,9 +10,9 @@ use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class LabelController extends Controller
 {
-    public function single(OrderMirror $order)
+    public function single(OrderMirror $order, Request $r)
     {
-        return $this->render(collect([$order]));
+        return $this->render(collect([$order]), $r->query('size', '2x3'));
     }
 
     public function batch(Request $r)
@@ -20,11 +20,13 @@ class LabelController extends Controller
         $ids = array_filter(explode(',', (string) $r->query('ids')));
         $orders = OrderMirror::with('store','items','consignments')
             ->whereIn('id', $ids)->get();
-        return $this->render($orders);
+        return $this->render($orders, $r->query('size', '2x3'));
     }
 
-    protected function render($orders)
+    protected function render($orders, string $size = '2x3')
     {
+        $size = in_array($size, ['2x3', '3x3'], true) ? $size : '2x3';
+
         $bg = new BarcodeGeneratorPNG();
         $labels = $orders->map(function (OrderMirror $o) use ($bg) {
             $cons   = $o->consignments()->latest('booked_at')->first();
@@ -47,6 +49,6 @@ class LabelController extends Controller
                 'qr_b64'      => $qrB64,
             ];
         });
-        return view('labels.print', ['labels' => $labels]);
+        return view('labels.print', ['labels' => $labels, 'size' => $size]);
     }
 }

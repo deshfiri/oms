@@ -11,6 +11,7 @@ use App\Services\Storefront\Resources\OrdersResource;
 use App\Services\Storefront\Resources\ProductsResource;
 use App\Services\Storefront\Resources\ReturnsResource;
 use App\Services\Storefront\Resources\ShipmentsResource;
+use App\Services\Storefront\Resources\SettingsResource;
 use App\Services\Storefront\Resources\WebhooksResource;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -29,6 +30,7 @@ class StorefrontClient
     public function customers(): CustomersResource { return new CustomersResource($this); }
     public function carts(): CartsResource         { return new CartsResource($this); }
     public function webhooks(): WebhooksResource   { return new WebhooksResource($this); }
+    public function settings(): SettingsResource   { return new SettingsResource($this); }
 
     public function ping(): bool
     {
