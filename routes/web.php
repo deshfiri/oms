@@ -19,6 +19,7 @@ use App\Http\Controllers\ReturnsController;
 use App\Http\Controllers\ScanController;
 use App\Http\Controllers\StockCountController;
 use App\Http\Controllers\StoreController;
+use App\Http\Controllers\StoreOtpController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerificationController;
@@ -35,6 +36,10 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('stores', StoreController::class)->except(['show']);
         Route::post('/stores/{store}/ping', [StoreController::class, 'ping'])->name('stores.ping');
         Route::post('/stores/{store}/sync', [StoreController::class, 'syncNow'])->name('stores.sync');
+        // OTP management for the license-server integration
+        Route::post('/stores/{store}/otp', [StoreOtpController::class, 'store'])->name('stores.otp.store');
+        Route::delete('/stores/{store}/otp/{otp}', [StoreOtpController::class, 'destroy'])->name('stores.otp.destroy');
+        Route::post('/stores/{store}/license-key/regenerate', [StoreOtpController::class, 'regenerateKey'])->name('stores.license-key.regenerate');
     });
 
     // Background auto-pull — pinged by the open-page poller so new orders

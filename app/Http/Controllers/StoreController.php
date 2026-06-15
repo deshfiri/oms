@@ -19,13 +19,18 @@ class StoreController extends Controller
         $data   = $this->validateForm($r);
         $secret = $data['api_secret'];
         unset($data['api_secret']);
-        $store             = new Store($data);
-        $store->api_secret = $secret;
+        $store                  = new Store($data);
+        $store->api_secret      = $secret;
+        $store->license_api_key = Str::random(48);
         $store->save();
         return redirect()->route('stores.index')->with('status', 'Store added');
     }
 
-    public function edit(Store $store) { return view('stores.form', compact('store')); }
+    public function edit(Store $store)
+    {
+        $store->load(['otpCodes' => fn ($q) => $q->latest()->limit(20)]);
+        return view('stores.form', compact('store'));
+    }
 
     public function update(Request $r, Store $store)
     {

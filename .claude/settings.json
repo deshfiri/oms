@@ -20,7 +20,11 @@
       "Read(///wsl.localhost/Ubuntu/home/ahsan/projects/dfoms/**)",
       "Bash(rm \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\ahsan\\\\\\\\projects\\\\\\\\dfoms\\\\\\\\database\\\\\\\\migrations\\\\\\\\2026_06_07_000001_add_courier_config_to_stores.php\" 2>&1 && echo \"deleted\")",
       "Read(//home/ahsan/projects/dfoms/**)",
-      "Bash(xargs grep -l \"courier_enabled\\\\|courier_credentials\")"
+      "Bash(xargs grep -l \"courier_enabled\\\\|courier_credentials\")",
+      "Bash(ls \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\ecom\\\\resources\\\\views\\\\admin\")",
+      "Bash(ls \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\ahsan\\\\projects\\\\ecom\\\\\" 2>/dev/null | head -20)",
+      "Bash(php artisan *)",
+      "PowerShell(wsl -e bash -c \"cd /home/ahsan/projects/dfoms && php artisan migrate 2>&1\")"
     ],
     "additionalDirectories": [
       "\\\\wsl.localhost\\Ubuntu\\home\\ahsan\\projects\\dfoms\\database\\migrations"

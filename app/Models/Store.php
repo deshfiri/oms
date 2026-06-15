@@ -24,6 +24,7 @@ class Store extends Model
     public function shipments()    { return $this->hasMany(ShipmentLog::class); }
     public function damages()      { return $this->hasMany(DamageLog::class); }
     public function assignedUsers(){ return $this->belongsToMany(User::class, 'user_stores')->withTimestamps(); }
+    public function otpCodes()     { return $this->hasMany(StoreOtpCode::class); }
 
     protected function apiSecret(): Attribute
     {
