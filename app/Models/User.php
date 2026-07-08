@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'role', 'roles', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -51,11 +51,20 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_active' => 'boolean',
+            'password'          => 'hashed',
+            'is_active'         => 'boolean',
+            'roles'             => 'array',
         ];
     }
 
-    public function isAdmin(): bool { return $this->role === self::ROLE_ADMIN; }
-    public function hasRole(string ...$roles): bool { return in_array($this->role, $roles, true); }
+    /** All roles this user holds (from the JSON roles column). */
+    public function getRolesListAttribute(): array
+    {
+        $list = is_array($this->roles) ? $this->roles : [];
+        // Backward compat: if roles column is empty, fall back to single role column.
+        return $list ?: array_filter([$this->role]);
+    }
+
+    public function isAdmin(): bool { return in_array(self::ROLE_ADMIN, $this->roles_list, true); }
+    public function hasRole(string ...$roles): bool { return (bool) array_intersect($roles, $this->roles_list); }
 }

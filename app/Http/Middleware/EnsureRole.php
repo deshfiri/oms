@@ -17,7 +17,7 @@ class EnsureRole
         if ($user->isAdmin()) {
             return $next($request);
         }
-        if ($roles && ! in_array($user->role, $roles, true)) {
+        if ($roles && ! $user->hasRole(...$roles)) {
             abort(403, 'Insufficient role');
         }
         return $next($request);

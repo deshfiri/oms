@@ -14,7 +14,11 @@
                     <tr>
                         <td>{{ $u->name }}</td>
                         <td>{{ $u->email }}</td>
-                        <td><x-admin.pill :status="$u->role" :label="ucwords(str_replace('_',' ',$u->role))"/></td>
+                        <td>
+                            @foreach($u->roles_list as $r)
+                                <x-admin.pill :status="$r" :label="ucwords(str_replace('_',' ',$r))" style="margin-right:3px"/>
+                            @endforeach
+                        </td>
                         <td style="font-size:12px">
                             @foreach($u->stores as $s)
                                 <span class="pill pill-default">{{ $s->dfid ?: $s->business_name }}</span>

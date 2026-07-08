@@ -31,6 +31,8 @@ class OrderMirror extends Model
         'tax'                => 'decimal:2',
         'grand_total'        => 'decimal:2',
         'paid_total'         => 'decimal:2',
+        'refund_amount'      => 'decimal:2',
+        'refunded_at'        => 'datetime',
     ];
 
     public const STATUSES = OrderStateMachine::STATUSES;

@@ -42,7 +42,7 @@
     <nav :class="open ? 'block' : 'hidden md:block'" class="flex-1 py-2">
         @foreach($nav as $item)
             @php
-                $allowed = $u && ($u->isAdmin() || in_array($u->role, $item['roles']));
+                $allowed = $u && ($u->isAdmin() || $u->hasRole(...$item['roles']));
                 $exists  = Route::has($item['route']);
             @endphp
             @if($allowed && $exists)

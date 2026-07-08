@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CourierConsignment;
 use App\Models\OrderMirror;
+use App\Models\PackingSession;
 use App\Services\Orders\OrderStateMachine;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Packing queue — orders consigned to a courier (consignment + label exist),
@@ -50,6 +53,87 @@ class PackingController extends Controller
             'pagination' => (string) $orders->links(),
             'total'      => $orders->total(),
         ]);
+    }
+
+    /** Manual packing form — enter weight, dimensions and courier by hand. */
+    public function show(OrderMirror $order)
+    {
+        abort_unless(
+            in_array($order->status, [OrderStateMachine::PROCESSING, OrderStateMachine::PACKED]),
+            422
+        );
+        return view('packing.show', compact('order'));
+    }
+
+    /**
+     * Complete manual packing: record dimensions, create a consignment from
+     * the operator-supplied tracking number, then transition to Packed.
+     */
+    public function complete(Request $r, OrderMirror $order, OrderStateMachine $sm)
+    {
+        abort_unless($order->status === OrderStateMachine::PROCESSING, 422);
+
+        $data = $r->validate([
+            'weight_kg'     => 'required|numeric|min:0.001',
+            'length_cm'     => 'nullable|numeric|min:0',
+            'width_cm'      => 'nullable|numeric|min:0',
+            'height_cm'     => 'nullable|numeric|min:0',
+            'courier'       => 'required|string|max:50',
+            'tracking_code' => 'required|string|max:200',
+            'cod_amount'    => 'nullable|numeric|min:0',
+        ]);
+
+        if ($order->consignments()->exists()) {
+            return redirect()->route('labels.single', $order)
+                ->with('status', 'Already has a consignment — label ready.');
+        }
+
+        $courierLabels = [
+            'steadfast' => 'Steadfast',
+            'pathao'    => 'Pathao',
+            'carrybee'  => 'CarryBee',
+            'redx'      => 'RedX',
+            'manual'    => 'Manual',
+        ];
+
+        $cod = (float) ($data['cod_amount'] ?? 0);
+
+        DB::transaction(function () use ($order, $data, $cod, $courierLabels, $r, $sm) {
+            CourierConsignment::create([
+                'order_id'       => $order->id,
+                'courier_slug'   => $data['courier'],
+                'courier_name'   => $courierLabels[$data['courier']] ?? ucfirst($data['courier']),
+                'consignment_id' => null,
+                'tracking_code'  => $data['tracking_code'],
+                'tracking_url'   => null,
+                'label_url'      => null,
+                'cod_amount'     => $cod,
+                'weight_kg'      => $data['weight_kg'],
+                'latest_status'  => 'booked',
+                'raw_payload'    => ['source' => 'manual_packing'],
+                'booked_at'      => now(),
+            ]);
+
+            PackingSession::create([
+                'order_id'       => $order->id,
+                'store_id'       => $order->store_id,
+                'packer_user_id' => $r->user()->id,
+                'weight_kg'      => $data['weight_kg'],
+                'length_cm'      => $data['length_cm'] ?? null,
+                'width_cm'       => $data['width_cm'] ?? null,
+                'height_cm'      => $data['height_cm'] ?? null,
+                'courier'        => $data['courier'],
+                'tracking_code'  => $data['tracking_code'],
+                'packed_at'      => now(),
+            ]);
+
+            $sm->transition($order, OrderStateMachine::PACKED, [
+                'note' => 'Manual pack — '.$data['courier'].', tracking: '.$data['tracking_code'],
+            ]);
+        });
+
+        return redirect()->route('labels.single', $order)
+            ->with('status', 'Packed — label ready.');
     }
 
     /** Mark a single order Packed (after physically sealing the parcel). */

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\DamageLog;
+use App\Models\LostLog;
 use App\Models\OrderMirror;
 use App\Services\Inventory\InventoryEngine;
 use App\Services\Orders\OrderStateMachine;
+use App\Services\Storefront\StorefrontClient;
 use Illuminate\Http\Request;
 
 class ReturnsController extends Controller
@@ -112,13 +114,15 @@ class ReturnsController extends Controller
     {
         abort_unless($order->status === OrderStateMachine::RETURNED, 422);
         $data = $r->validate([
-            'decision'         => 'required|in:restock,damage',
-            'condition_grade'  => 'nullable|in:A,B,C,D',
-            'inspection_notes' => 'nullable|string|max:2000',
-            'photos.*'         => 'nullable|image|max:5120',
-            'damaged_qty'      => 'nullable|integer|min:1',
-            'responsible_party'=> 'nullable|in:warehouse,courier,vendor',
-            'damage_reason'    => 'nullable|string|max:160',
+            'decision'          => 'required|in:restock,damage,refund_only,lost',
+            'condition_grade'   => 'nullable|in:A,B,C,D',
+            'inspection_notes'  => 'nullable|string|max:2000',
+            'photos.*'          => 'nullable|image|max:5120',
+            'damaged_qty'       => 'nullable|integer|min:1',
+            'responsible_party' => 'nullable|in:warehouse,courier,vendor',
+            'damage_reason'     => 'nullable|string|max:160',
+            'refund_amount'     => 'nullable|numeric|min:0.01',
+            'refund_note'       => 'nullable|string|max:255',
         ]);
         $photos = [];
         if ($r->hasFile('photos')) {
@@ -132,6 +136,56 @@ class ReturnsController extends Controller
                 ]);
             } catch (\Throwable $e) { return back()->with('error', $e->getMessage()); }
             return back()->with('status', 'Restocked into available inventory.');
+        }
+
+        if ($data['decision'] === 'refund_only') {
+            // Transition to DAMAGED to clear the returned bucket (item won't go back to available),
+            // then immediately process the refund via storefront API.
+            try {
+                $sm->transition($order, OrderStateMachine::DAMAGED, [
+                    'note' => 'refund_only — item not resalable',
+                ]);
+            } catch (\Throwable $e) { return back()->with('error', $e->getMessage()); }
+
+            $amount = $data['refund_amount'] ?? $order->grand_total;
+            $order->update([
+                'refund_status' => 'pending',
+                'refund_amount' => $amount,
+                'refund_note'   => $data['refund_note'] ?? $data['inspection_notes'] ?? null,
+            ]);
+            try {
+                (new StorefrontClient($order->store))->orders()->refund($order->order_number, [
+                    'amount' => $amount,
+                    'note'   => $order->refund_note ?? '',
+                ]);
+                $order->update(['refund_status' => 'refunded', 'refunded_at' => now()]);
+                return back()->with('status', "Refund of ৳{$amount} issued for {$order->order_number}.");
+            } catch (\Throwable $e) {
+                $order->update(['refund_status' => 'failed']);
+                return back()->with('warning', "Item marked damaged but refund API failed — go to Refunds to retry. ({$e->getMessage()})");
+            }
+        }
+
+        if ($data['decision'] === 'lost') {
+            // Item returned but physically lost/missing on inspection — treat as lost.
+            try {
+                $sm->transition($order, OrderStateMachine::DAMAGED, [
+                    'note' => 'lost-on-inspection — item missing from returned parcel',
+                ]);
+            } catch (\Throwable $e) { return back()->with('error', $e->getMessage()); }
+
+            LostLog::create([
+                'store_id'          => $order->store_id,
+                'order_id'          => $order->id,
+                'sku'               => $order->items->first()?->sku,
+                'qty'               => $order->items->sum('qty'),
+                'responsible_party' => $data['responsible_party'] ?? 'courier',
+                'reason'            => $data['damage_reason'] ?? 'lost-on-inspection',
+                'notes_json'        => ['inspection_notes' => $data['inspection_notes'] ?? null, 'photos' => $photos],
+                'recorded_by'       => auth()->id(),
+                'recorded_at'       => now(),
+            ]);
+            return back()->with('status', 'Recorded as lost — LostLog created, inventory bucket cleared.');
         }
 
         // Damage path — also record on the damage_log

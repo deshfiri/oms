@@ -23,6 +23,9 @@ use App\Http\Controllers\StoreOtpController;
 use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\RefundController;
+use App\Http\Controllers\WarehouseBillingController;
+use App\Http\Controllers\WarehouseCostController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -100,6 +103,8 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/packing',                     [PackingController::class, 'index'])->name('packing.index');
         Route::get('/packing/rows',                [PackingController::class, 'rows'])->name('packing.rows');
+        Route::get('/packing/{order}',             [PackingController::class, 'show'])->name('packing.show');
+        Route::post('/packing/{order}/complete',   [PackingController::class, 'complete'])->name('packing.complete');
         Route::post('/packing/{order}/mark-packed',[PackingController::class, 'markPacked'])->name('packing.mark-packed');
         Route::post('/packing/bulk-mark-packed',   [PackingController::class, 'bulkMarkPacked'])->name('packing.bulk-mark-packed');
 
@@ -130,6 +135,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/returns/{order}/receive',   [ReturnsController::class, 'receive'])->name('returns.receive');
         Route::post('/returns/{order}/inspect',   [ReturnsController::class, 'inspect'])->name('returns.inspect');
         Route::post('/scan/return',               [ScanController::class, 'returnIntake'])->name('scan.return');
+        // Refunds
+        Route::get('/refunds',                    [RefundController::class, 'index'])->name('refunds.index');
+        Route::post('/refunds/{order}/issue',     [RefundController::class, 'issue'])->name('refunds.issue');
+        Route::post('/refunds/{order}/retry',     [RefundController::class, 'retry'])->name('refunds.retry');
+        Route::post('/refunds/{order}/cancel',    [RefundController::class, 'cancel'])->name('refunds.cancel');
     });
     Route::middleware('role:returns_clerk,customer_support,admin')->group(function () {
         Route::get('/exchanges',                  [ExchangeController::class, 'index'])->name('exchanges.index');
@@ -151,9 +161,14 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/lost',        [LostController::class, 'store'])->name('lost.store');
     });
 
-    // ── Inventory + Stock count ──────────────────────────────────────
+    // ── Inventory + Stock count + Warehouse costs ────────────────────
     Route::middleware('role:inventory_admin,stock_counter,admin')->group(function () {
         Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::get('/warehouse-costs',       [WarehouseCostController::class, 'index'])->name('warehouse-costs.index');
+        Route::post('/warehouse-costs/save', [WarehouseCostController::class, 'save'])->name('warehouse-costs.save');
+        Route::get('/warehouse-billing',                          [WarehouseBillingController::class, 'index'])->name('warehouse-billing.index');
+        Route::post('/warehouse-billing/rates/global',            [WarehouseBillingController::class, 'saveGlobalRate'])->name('warehouse-billing.rates.global');
+        Route::post('/warehouse-billing/rates/{store}',           [WarehouseBillingController::class, 'saveStoreRate'])->name('warehouse-billing.rates.store');
         Route::get('/stock-counts', [StockCountController::class, 'index'])->name('stock-counts.index');
         Route::get('/stock-counts/create', [StockCountController::class, 'create'])->name('stock-counts.create');
         Route::post('/stock-counts', [StockCountController::class, 'store'])->name('stock-counts.store');

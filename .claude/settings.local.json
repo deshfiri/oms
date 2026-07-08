@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(wsl -d Ubuntu bash -c \"cd /home/deshfiri/projects/oms && php artisan migrate --force 2>&1\")",
+      "PowerShell(wsl -d Ubuntu bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\Store::count\\(\\) . \\\\\")",
+      "PowerShell(\\\\\" . App\\\\Models\\\\ProductMirror::count\\(\\) . \\\\\")",
+      "PowerShell(\\\\\" . App\\\\Models\\\\Warehouse::count\\(\\) . \\\\\")",
+      "PowerShell(\\\\\" . App\\\\Models\\\\WarehouseStock::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\Store::count\\(\\);'\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan db:seed --class=WarehouseCostSeeder 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='print_r\\(array_keys\\(DB::connection\\(\\)->getSchemaBuilder\\(\\)->getColumns\\(\\\\\"stores\\\\\"\\)\\)\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan migrate:status 2>&1 | head -30\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo \\\\\"stores=\\\\\".App\\\\Models\\\\Store::count\\(\\).\\\\\", products=\\\\\".App\\\\Models\\\\ProductMirror::count\\(\\).\\\\\", stock=\\\\\".App\\\\Models\\\\WarehouseStock::count\\(\\).\\\\\", costs=\\\\\".App\\\\Models\\\\WarehouseProductCost::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\Store::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\ProductMirror::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\WarehouseProductCost::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan migrate --force 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\WarehouseBillingRate::count\\(\\);' 2>&1 && php artisan tinker --execute='echo App\\\\Models\\\\OrderMirror::whereNotNull\\(\\\\\"packed_at\\\\\"\\)->count\\(\\);' 2>&1 && php artisan tinker --execute='echo App\\\\Models\\\\OrderItemMirror::count\\(\\);' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\WarehouseBillingRate::count\\(\\);'\" 2>&1)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && php artisan tinker --execute='echo App\\\\Models\\\\OrderMirror::count\\(\\);'\" 2>&1)",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && git diff main...HEAD 2>&1 | head -400\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && git diff HEAD 2>&1 | head -200 && echo '---' && git log --oneline -5 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/deshfiri/projects/oms && mysql -u root -e 'SELECT name, role, roles FROM oms.users LIMIT 10;' 2>/dev/null || php artisan db:table users 2>&1 | head -20\")",
+      "PowerShell(wsl -d Ubuntu -e php /mnt/c/Users/DELL-01-BELUGA/AppData/Local/Temp/claude/--wsl-localhost-Ubuntu-home-deshfiri-projects-oms/bcdbab3c-339b-40b7-87fc-1bbade0d53ab/scratchpad/check_roles.php)"
+    ]
+  }
+}

@@ -13,13 +13,13 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $defaults = [
-            ['Admin',           'admin@admin.com',          User::ROLE_ADMIN,      'admin123'],
-            ['Pia Picker',      'picker@dfoms.test',        User::ROLE_PICKER,     'password'],
-            ['Paul Packer',     'packer@dfoms.test',        User::ROLE_PACKER,     'password'],
-            ['Dipa Dispatcher', 'dispatcher@dfoms.test',    User::ROLE_DISPATCHER, 'password'],
-            ['Reema Returns',   'returns@dfoms.test',       User::ROLE_RETURNS,    'password'],
-            ['Dilip Damage',    'damage@dfoms.test',        User::ROLE_DAMAGE,     'password'],
-            ['Shawon Stock',    'stock@dfoms.test',         User::ROLE_STOCK,      'password'],
+            ['Admin', 'admin@admin.com', User::ROLE_ADMIN, 'admin123'],
+            ['Pia Picker', 'picker@dfoms.test', User::ROLE_PICKER, 'password'],
+            ['Paul Packer', 'packer@dfoms.test', User::ROLE_PACKER, 'password'],
+            ['Dipa Dispatcher', 'dispatcher@dfoms.test', User::ROLE_DISPATCHER, 'password'],
+            ['Reema Returns', 'returns@dfoms.test', User::ROLE_RETURNS, 'password'],
+            ['Dilip Damage', 'damage@dfoms.test', User::ROLE_DAMAGE, 'password'],
+            ['Shawon Stock', 'stock@dfoms.test', User::ROLE_STOCK, 'password'],
         ];
 
         foreach ($defaults as [$name, $email, $role, $password]) {
@@ -28,5 +28,7 @@ class DatabaseSeeder extends Seeder
                 ['name' => $name, 'password' => $password, 'role' => $role, 'is_active' => true],
             );
         }
+
+        $this->call(WarehouseCostSeeder::class);
     }
 }

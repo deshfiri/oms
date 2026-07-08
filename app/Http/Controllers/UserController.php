@@ -21,15 +21,17 @@ class UserController extends Controller
     public function store(Request $r)
     {
         $data = $r->validate([
-            'name'      => 'required|string|max:120',
-            'email'     => 'required|email|unique:users,email',
-            'role'      => 'required|in:'.implode(',', User::ROLES),
-            'password'  => 'required|string|min:8|confirmed',
-            'store_ids' => 'nullable|array',
-            'store_ids.*' => 'integer|exists:stores,id',
+            'name'       => 'required|string|max:120',
+            'email'      => 'required|email|unique:users,email',
+            'roles'      => 'required|array|min:1',
+            'roles.*'    => 'in:'.implode(',', User::ROLES),
+            'password'   => 'required|string|min:8|confirmed',
+            'store_ids'  => 'nullable|array',
+            'store_ids.*'=> 'integer|exists:stores,id',
         ]);
         $storeIds = $data['store_ids'] ?? [];
         unset($data['store_ids']);
+        $data['role'] = $data['roles'][0]; // primary role for backward compat
         $user = User::create($data + ['is_active' => true]);
         $user->stores()->sync($storeIds);
         return redirect()->route('users.index')->with('status', 'User created');
@@ -44,18 +46,20 @@ class UserController extends Controller
     public function update(Request $r, User $user)
     {
         $data = $r->validate([
-            'name'      => 'required|string|max:120',
-            'email'     => 'required|email|unique:users,email,'.$user->id,
-            'role'      => 'required|in:'.implode(',', User::ROLES),
-            'password'  => 'nullable|string|min:8|confirmed',
-            'is_active' => 'nullable|boolean',
-            'store_ids' => 'nullable|array',
-            'store_ids.*' => 'integer|exists:stores,id',
+            'name'       => 'required|string|max:120',
+            'email'      => 'required|email|unique:users,email,'.$user->id,
+            'roles'      => 'required|array|min:1',
+            'roles.*'    => 'in:'.implode(',', User::ROLES),
+            'password'   => 'nullable|string|min:8|confirmed',
+            'is_active'  => 'nullable|boolean',
+            'store_ids'  => 'nullable|array',
+            'store_ids.*'=> 'integer|exists:stores,id',
         ]);
         $storeIds = $data['store_ids'] ?? [];
         unset($data['store_ids']);
         if (empty($data['password'])) unset($data['password']);
         $data['is_active'] = (bool) $r->input('is_active', true);
+        $data['role'] = $data['roles'][0]; // primary role for backward compat
         $user->update($data);
         $user->stores()->sync($storeIds);
         return redirect()->route('users.index')->with('status', 'User updated');

@@ -27,14 +27,17 @@
             ['tracking.index',  'Tracking', Icons::svg('pin'),   null,           ['admin','dispatcher']],
         ],
         'Returns & Aftercare' => [
-            ['returns.index',    'Returns',   Icons::svg('rotate'),  'returns_open', ['admin','returns_clerk']],
-            ['exchanges.index',  'Exchanges', Icons::svg('swap'),    null,           ['admin','returns_clerk','customer_support']],
-            ['damages.index',    'Damages',   Icons::svg('warning'), null,           ['admin','damage_clerk','returns_clerk']],
-            ['lost.index',       'Lost',      Icons::svg('help'),    null,           ['admin','warehouse_admin','dispatcher']],
+            ['returns.index',    'Returns',   Icons::svg('rotate'),  'returns_open',   ['admin','returns_clerk']],
+            ['refunds.index',    'Refunds',   Icons::svg('reports'), 'refunds_pending',['admin','returns_clerk']],
+            ['exchanges.index',  'Exchanges', Icons::svg('swap'),    null,             ['admin','returns_clerk','customer_support']],
+            ['damages.index',    'Damages',   Icons::svg('warning'), null,             ['admin','damage_clerk','returns_clerk']],
+            ['lost.index',       'Lost',      Icons::svg('help'),    null,             ['admin','warehouse_admin','dispatcher']],
         ],
         'Inventory' => [
-            ['inventory.index',    'Inventory',    Icons::svg('inventory'), 'inventory_low', ['admin','inventory_admin','stock_counter']],
-            ['stock-counts.index', 'Stock Counts', Icons::svg('list'),      null,            ['admin','inventory_admin','stock_counter']],
+            ['inventory.index',       'Inventory',       Icons::svg('inventory'), 'inventory_low', ['admin','inventory_admin','stock_counter']],
+            ['warehouse-costs.index',    'Warehouse Costs',  Icons::svg('reports'),   null, ['admin','inventory_admin']],
+            ['warehouse-billing.index',  'Store Billing',    Icons::svg('reports'),   null, ['admin']],
+            ['stock-counts.index',    'Stock Counts',    Icons::svg('list'),      null,            ['admin','inventory_admin','stock_counter']],
         ],
         'System' => [
             ['stores.index', 'Stores',        Icons::svg('store'),  null, ['admin']],
@@ -55,6 +58,7 @@
                                         \App\Services\Orders\OrderStateMachine::RETURN_PENDING,
                                         \App\Services\Orders\OrderStateMachine::RETURNED,
                                    ])->count(),
+            'refunds_pending'   => \App\Models\OrderMirror::whereIn('refund_status', ['pending','failed'])->count(),
             'inventory_low'     => \App\Models\ProductMirror::whereColumn('stock_quantity','<=','low_stock_threshold')->where('manage_stock', true)->count(),
         ],
     );
@@ -129,7 +133,7 @@
                     @foreach($items as $item)
                         @php
                             [$route, $label, $icon, $badgeKey, $allowedRoles] = $item;
-                            if ($allowedRoles && $u && ! $u->isAdmin() && ! in_array($u->role, $allowedRoles, true)) continue;
+                            if ($allowedRoles && $u && ! $u->isAdmin() && ! $u->hasRole(...$allowedRoles)) continue;
                             if (! \Illuminate\Support\Facades\Route::has($route)) continue;
                             $url      = route($route);
                             $isActive = $active($route);

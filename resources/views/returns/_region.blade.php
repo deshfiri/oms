@@ -55,28 +55,48 @@
                         <td style="text-align:right">
                             @if($o->status === \App\Services\Orders\OrderStateMachine::RETURNED)
                                 <button class="btn btn-dark btn-sm" onclick="document.getElementById('insp-{{ $o->id }}').showModal()">Inspect</button>
-                                <dialog id="insp-{{ $o->id }}" style="border:none;border-radius:12px;padding:0;max-width:520px;width:90%">
-                                    <form method="POST" action="{{ route('returns.inspect', $o) }}" enctype="multipart/form-data" class="admin-card" style="margin:0">
+                                <dialog id="insp-{{ $o->id }}" style="border:none;border-radius:12px;padding:0;max-width:560px;width:90%">
+                                    <form method="POST" action="{{ route('returns.inspect', $o) }}" enctype="multipart/form-data" class="admin-card" style="margin:0" id="inspform-{{ $o->id }}">
                                         @csrf
                                         <div class="admin-card-head"><x-admin.section-head icon="check" :title="'Inspect '.$o->order_number"/></div>
                                         <div class="admin-card-body" style="display:flex;flex-direction:column;gap:8px">
+                                            {{-- Decision --}}
                                             <label><span style="font-size:12px;font-weight:600">Decision</span>
-                                                <select class="input" name="decision" required>
+                                                <select class="input" name="decision" required
+                                                    onchange="inspToggle(this,'{{ $o->id }}')">
                                                     <option value="restock">Good condition — restock</option>
                                                     <option value="damage">Damaged — write off</option>
+                                                    <option value="refund_only">Refund only — item not resalable</option>
+                                                    <option value="lost">Lost — item missing from parcel</option>
                                                 </select>
                                             </label>
-                                            <label><span style="font-size:12px;font-weight:600">Condition grade</span>
-                                                <select class="input" name="condition_grade">
-                                                    @foreach(['A'=>'A · like new','B'=>'B · minor','C'=>'C · used','D'=>'D · damaged'] as $g=>$l)<option value="{{ $g }}">{{ $l }}</option>@endforeach
-                                                </select>
-                                            </label>
-                                            <label><span style="font-size:12px;font-weight:600">Responsible (if damaged)</span>
-                                                <select class="input" name="responsible_party"><option value="">—</option><option value="warehouse">Warehouse</option><option value="courier">Courier</option><option value="vendor">Vendor</option></select>
-                                            </label>
-                                            <label><span style="font-size:12px;font-weight:600">Damage reason</span><input class="input" name="damage_reason"></label>
-                                            <label><span style="font-size:12px;font-weight:600">Damaged qty</span><input class="input" name="damaged_qty" type="number" min="1" value="1"></label>
-                                            <label><span style="font-size:12px;font-weight:600">Notes</span><textarea class="input" name="inspection_notes" rows="2"></textarea></label>
+                                            {{-- Condition grade (restock / damage) --}}
+                                            <div class="insp-section insp-restock insp-damage" data-insp="{{ $o->id }}">
+                                                <label><span style="font-size:12px;font-weight:600">Condition grade</span>
+                                                    <select class="input" name="condition_grade">
+                                                        @foreach(['A'=>'A · like new','B'=>'B · minor','C'=>'C · used','D'=>'D · damaged'] as $g=>$l)<option value="{{ $g }}">{{ $l }}</option>@endforeach
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            {{-- Damage fields (damage / lost) --}}
+                                            <div class="insp-section insp-damage insp-lost" data-insp="{{ $o->id }}" style="display:none">
+                                                <label><span style="font-size:12px;font-weight:600">Responsible party</span>
+                                                    <select class="input" name="responsible_party"><option value="">—</option><option value="warehouse">Warehouse</option><option value="courier">Courier</option><option value="vendor">Vendor</option></select>
+                                                </label>
+                                                <label style="margin-top:6px"><span style="font-size:12px;font-weight:600">Damage / loss reason</span><input class="input" name="damage_reason"></label>
+                                                <label style="margin-top:6px"><span style="font-size:12px;font-weight:600">Damaged qty</span><input class="input" name="damaged_qty" type="number" min="1" value="1"></label>
+                                            </div>
+                                            {{-- Refund fields (refund_only) --}}
+                                            <div class="insp-section insp-refund_only" data-insp="{{ $o->id }}" style="display:none">
+                                                <label><span style="font-size:12px;font-weight:600">Refund amount (৳)</span>
+                                                    <input class="input" name="refund_amount" type="number" step="0.01" min="0.01"
+                                                           value="{{ number_format((float)$o->grand_total, 2, '.', '') }}"
+                                                           style="text-align:right">
+                                                </label>
+                                                <label style="margin-top:6px"><span style="font-size:12px;font-weight:600">Refund note</span><input class="input" name="refund_note"></label>
+                                            </div>
+                                            {{-- Notes + photos (all decisions) --}}
+                                            <label><span style="font-size:12px;font-weight:600">Inspection notes</span><textarea class="input" name="inspection_notes" rows="2"></textarea></label>
                                             <label><span style="font-size:12px;font-weight:600">Photos</span><input type="file" name="photos[]" multiple accept="image/*"></label>
                                         </div>
                                         <div class="admin-card-body" style="border-top:1px solid var(--a-border);display:flex;justify-content:flex-end;gap:8px">
@@ -105,3 +125,16 @@
         <div class="admin-pagination">{{ $orders->links() }}</div>
     @endif
 </div>
+<script>
+function inspToggle(sel, id) {
+    var decision = sel.value;
+    var all = document.querySelectorAll('[data-insp="' + id + '"]');
+    all.forEach(function(el) { el.style.display = 'none'; });
+    var show = document.querySelectorAll('.insp-' + decision + '[data-insp="' + id + '"]');
+    show.forEach(function(el) { el.style.display = ''; });
+}
+// Init on page load — show grade section for default "restock"
+document.querySelectorAll('[data-insp]').forEach(function(el) {
+    if (el.classList.contains('insp-restock')) el.style.display = '';
+});
+</script>

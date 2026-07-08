@@ -8,11 +8,21 @@
         <div class="admin-card-body" style="display:flex;flex-direction:column;gap:10px">
             <label><span style="font-size:12px;font-weight:600">Name *</span><input name="name" value="{{ old('name', $user->name) }}" class="input" required></label>
             <label><span style="font-size:12px;font-weight:600">Email *</span><input name="email" value="{{ old('email', $user->email) }}" class="input" required></label>
-            <label><span style="font-size:12px;font-weight:600">Role *</span>
-                <select name="role" class="input">
-                    @foreach(\App\Models\User::ROLES as $r)<option value="{{ $r }}" @selected(old('role',$user->role)===$r)>{{ ucwords(str_replace('_',' ',$r)) }}</option>@endforeach
-                </select>
-            </label>
+            <div>
+                <span style="font-size:12px;font-weight:600;display:block;margin-bottom:6px">Roles * <span style="font-size:11px;color:var(--a-text-3);font-weight:400">(select one or more)</span></span>
+                @php $currentRoles = old('roles', $user->roles ?? ($user->role ? [$user->role] : [])); @endphp
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px 16px;padding:10px 12px;border:1px solid var(--a-border);border-radius:var(--a-r);background:var(--a-surface-2)">
+                    @foreach(\App\Models\User::ROLES as $roleName)
+                        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0">
+                            <input type="checkbox" name="roles[]" value="{{ $roleName }}"
+                                   @checked(in_array($roleName, (array) $currentRoles))
+                                   style="width:15px;height:15px;accent-color:var(--a-accent)">
+                            {{ ucwords(str_replace('_', ' ', $roleName)) }}
+                        </label>
+                    @endforeach
+                </div>
+                @error('roles')<span style="font-size:11px;color:#dc2626">{{ $message }}</span>@enderror
+            </div>
             <label><span style="font-size:12px;font-weight:600">Assigned stores</span>
                 <select name="store_ids[]" multiple size="6" class="input" style="height:auto">
                     @foreach($stores as $s)
