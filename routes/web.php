@@ -39,6 +39,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('stores', StoreController::class)->except(['show']);
         Route::post('/stores/{store}/ping', [StoreController::class, 'ping'])->name('stores.ping');
         Route::post('/stores/{store}/sync', [StoreController::class, 'syncNow'])->name('stores.sync');
+        Route::post('/stores-sync-all', [StoreController::class, 'syncAll'])->name('stores.sync-all');
         // OTP management for the license-server integration
         Route::post('/stores/{store}/otp', [StoreOtpController::class, 'store'])->name('stores.otp.store');
         Route::delete('/stores/{store}/otp/{otp}', [StoreOtpController::class, 'destroy'])->name('stores.otp.destroy');
@@ -73,6 +74,9 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/orders-new/{order}',       [\App\Http\Controllers\OrderCreationController::class, 'destroy'])->name('orders-new.destroy');
         Route::get('/orders-new/product-search',   [\App\Http\Controllers\OrderCreationController::class, 'productSearch'])->name('orders-new.product-search');
         Route::get('/orders-new/shipping-quote',    [\App\Http\Controllers\OrderCreationController::class, 'shippingQuote'])->name('orders-new.shipping-quote');
+        // Courier fraud check — informational, rate-limited per user to stop abuse.
+        Route::post('/orders-new/fraud-check',     [\App\Http\Controllers\OrderCreationController::class, 'fraudCheck'])
+            ->middleware('throttle:15,1')->name('orders-new.fraud-check');
     });
 
     // ── Customer Support: Verification ───────────────────────────────

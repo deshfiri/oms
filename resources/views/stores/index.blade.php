@@ -2,7 +2,10 @@
     @section('title', 'Stores')
     <div class="admin-page-header">
         <div><h1>Stores</h1><p class="sub">{{ $stores->count() }} merchant(s) connected.</p></div>
-        <a href="{{ route('stores.create') }}" class="btn btn-dark">+ Add store</a>
+        <div style="display:inline-flex;gap:8px">
+            <form method="POST" action="{{ route('stores.sync-all') }}">@csrf<button class="btn btn-outline">⟳ Sync all now</button></form>
+            <a href="{{ route('stores.create') }}" class="btn btn-dark">+ Add store</a>
+        </div>
     </div>
 
     <div class="admin-card">

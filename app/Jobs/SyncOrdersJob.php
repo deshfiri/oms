@@ -39,10 +39,12 @@ class SyncOrdersJob implements ShouldQueue
             // ── Pass B — orders CHANGED since last sync (status edits on EXISTING
             //    orders), regardless of id. This is what makes status updates flow
             //    into the OMS instead of getting stuck behind the id cursor. ──
+            // Plain UTC datetime — MySQL on the storefront side compares the
+            // string raw and silently matches nothing for ISO-8601 (T/offset).
             $last = $store->last_sync_at;
             $updatedSince = $last
-                ? \Carbon\Carbon::parse($last)->subMinutes(10)->toIso8601String()
-                : now()->subDay()->toIso8601String();
+                ? \Carbon\Carbon::parse($last)->subMinutes(10)->utc()->format('Y-m-d H:i:s')
+                : now()->subDay()->utc()->format('Y-m-d H:i:s');
             $cursor = 0;
             do {
                 $resp = $client->orders()->list([

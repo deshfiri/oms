@@ -24,7 +24,10 @@ class SyncStoresCommand extends Command
 
         $query->each(function (Store $store) use ($resource) {
             if (in_array($resource, ['all', 'orders'], true))    SyncOrdersJob::dispatch($store->id)->onQueue('sync');
-            if (in_array($resource, ['all', 'products'], true))  SyncProductsJob::dispatch($store->id)->onQueue('sync');
+            // Full walk: refreshes every price AND removes mirrors for products
+            // deleted on the store, so mirrors converge on the store's truth
+            // every scheduled run.
+            if (in_array($resource, ['all', 'products'], true))  SyncProductsJob::dispatch($store->id, true)->onQueue('sync');
             if (in_array($resource, ['all', 'shipments'], true)) SyncShipmentsJob::dispatch($store->id)->onQueue('sync');
             if (in_array($resource, ['all', 'returns'], true))   \App\Jobs\SyncReturnsJob::dispatch($store->id)->onQueue('sync');
             $this->info("Queued sync for store #{$store->id} ({$store->name})");

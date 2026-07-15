@@ -54,10 +54,20 @@
                     <div class="admin-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                         <label><span style="font-size:12px;font-weight:600">Full name *</span><input class="input"
                                 name="customer_name" required autocomplete="off"></label>
-                        <label><span style="font-size:12px;font-weight:600">Mobile number *</span><input class="input"
-                                name="customer_phone" required inputmode="numeric" pattern="01[3-9][0-9]{8}"
-                                maxlength="11" placeholder="01XXXXXXXXX"
-                                title="11-digit Bangladeshi mobile, e.g. 01712345678"></label>
+                        <label><span style="font-size:12px;font-weight:600">Mobile number *</span>
+                            <span style="display:flex;gap:6px">
+                                <input class="input" name="customer_phone" x-model="customerPhone" required
+                                    inputmode="numeric" pattern="01[3-9][0-9]{8}" maxlength="15"
+                                    placeholder="01XXXXXXXXX" style="flex:1"
+                                    title="11-digit Bangladeshi mobile, e.g. 01712345678"
+                                    @change="const n = normalizedPhone(); if (n) customerPhone = n">
+                                <button type="button" class="btn btn-outline"
+                                    style="white-space:nowrap;height:auto"
+                                    :disabled="fraudChecking || !storeId || !phoneValid()"
+                                    @click="checkFraud()"
+                                    x-text="fraudChecking ? 'Checking...' : 'Fraud Check'">Fraud Check</button>
+                            </span>
+                        </label>
                         <label style="grid-column:1/-1"><span style="font-size:12px;font-weight:600">Full address
                                 *</span><input class="input" name="shipping_address_line" required
                                 placeholder="House / road / block"></label>
@@ -111,7 +121,8 @@
                                             x-text="p.sku"></span></span>
                                     <span><strong x-text="'৳' + (p.sale_price || p.price)"></strong> <span
                                             style="color:var(--a-text-3);font-size:11px"
-                                            x-text="'stock ' + p.stock_quantity"></span></span>
+                                            x-text="'stock ' + p.stock_quantity"></span>
+                                    </span>
                                 </div>
                             </template>
                         </div>
@@ -206,6 +217,62 @@
                 <button class="btn btn-dark btn-lg btn-block">Place order — send to verification</button>
             </div>
         </div>
+
+        {{-- ── Courier Fraud Check modal ─────────────────────────────────── --}}
+        <div x-show="fraudModal" x-cloak @keydown.escape.window="fraudModal = false"
+            style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center">
+            <div @click="fraudModal = false" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
+            <div class="admin-card" style="position:relative;width:min(440px,92vw);max-height:85vh;overflow-y:auto">
+                <div class="admin-card-head" style="display:flex;justify-content:space-between;align-items:center">
+                    <x-admin.section-head icon="user" title="Courier Fraud Check" />
+                    <button type="button" class="btn btn-outline btn-sm" @click="fraudModal = false">✕</button>
+                </div>
+                <div class="admin-card-body" style="font-size:13px;display:flex;flex-direction:column;gap:10px">
+
+                    {{-- Error state --}}
+                    <template x-if="fraudError">
+                        <div style="padding:10px 12px;border:1px solid #f3c2c2;background:#fdf2f2;color:#8a2424;border-radius:var(--a-r)"
+                            x-text="fraudError"></div>
+                    </template>
+
+                    {{-- Result state --}}
+                    <template x-if="fraudResult">
+                        <div style="display:flex;flex-direction:column;gap:10px">
+                            <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;color:var(--a-text-2)">
+                                <span>Store</span><strong style="color:var(--a-text-1)" x-text="fraudResult.store"></strong>
+                                <span>Courier</span><strong style="color:var(--a-text-1)" x-text="fraudResult.courier"></strong>
+                                <span>Phone</span><strong style="color:var(--a-text-1);font-family:ui-monospace,monospace" x-text="fraudResult.phone"></strong>
+                            </div>
+
+                            <div :style="'padding:10px 12px;border-radius:var(--a-r);font-weight:600;' + riskStyle(fraudResult.risk?.level)">
+                                <span x-text="fraudResult.risk?.label || 'Unable to Determine'"></span>
+                                <div style="font-weight:400;font-size:12px;margin-top:2px"
+                                    x-text="fraudResult.risk?.message || ''"></div>
+                            </div>
+
+                            <div class="atable-wrap">
+                                <table class="atable">
+                                    <tbody>
+                                        <tr><td>Total parcels</td><td style="text-align:right"><strong x-text="fraudResult.summary.total"></strong></td></tr>
+                                        <tr><td>Delivered</td><td style="text-align:right"><strong x-text="fraudResult.summary.delivered"></strong></td></tr>
+                                        <tr><td>Returned</td><td style="text-align:right"><strong x-text="fraudResult.summary.returned"></strong></td></tr>
+                                        <tr><td>Cancelled</td><td style="text-align:right"><strong x-text="fraudResult.summary.cancelled"></strong></td></tr>
+                                        <tr><td>Pending</td><td style="text-align:right"><strong x-text="fraudResult.summary.pending"></strong></td></tr>
+                                        <tr><td>Success rate</td><td style="text-align:right"><strong x-text="fraudResult.summary.success_rate != null ? fraudResult.summary.success_rate + '%' : '—'"></strong></td></tr>
+                                        <tr><td>Return / cancel rate</td><td style="text-align:right"><strong x-text="fraudResult.summary.return_rate != null ? fraudResult.summary.return_rate + '%' : '—'"></strong></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div x-show="fraudResult.raw_reference" style="font-size:11px;color:var(--a-text-3)"
+                                x-text="fraudResult.raw_reference"></div>
+                        </div>
+                    </template>
+
+                    <button type="button" class="btn btn-dark btn-block" @click="fraudModal = false">Close</button>
+                </div>
+            </div>
+        </div>
     </form>
 
     @push('scripts')
@@ -225,6 +292,11 @@
                     discount: 0,
                     shipping: 0,
                     shippingLoading: false,
+                    customerPhone: '',
+                    fraudChecking: false,
+                    fraudModal: false,
+                    fraudResult: null,
+                    fraudError: null,
                     districtList: @json($districts),
                     district: '',
                     area: '',
@@ -256,6 +328,50 @@
                             this.shipping = (j.ok && j.shipping_total != null) ? parseFloat(j.shipping_total) : 0;
                         } catch (e) { this.shipping = 0; }
                         this.shippingLoading = false;
+                    },
+
+                    // Accept 01…, +8801…, 8801… and reduce to canonical 01XXXXXXXXX.
+                    normalizedPhone() {
+                        let d = (this.customerPhone || '').replace(/\D+/g, '');
+                        if (d.startsWith('880')) d = d.slice(2);
+                        return /^01[3-9]\d{8}$/.test(d) ? d : null;
+                    },
+                    phoneValid() { return this.normalizedPhone() !== null; },
+                    riskStyle(level) {
+                        switch (level) {
+                            case 'low':    return 'border:1px solid #bfe3c5;background:#effaf1;color:#1d6b2f';
+                            case 'medium': return 'border:1px solid #f2ddb0;background:#fdf8ec;color:#8a6410';
+                            case 'high':   return 'border:1px solid #f3c2c2;background:#fdf2f2;color:#8a2424';
+                            default:       return 'border:1px solid var(--a-border);background:var(--a-surface-2);color:var(--a-text-2)';
+                        }
+                    },
+                    async checkFraud() {
+                        if (this.fraudChecking || !this.storeId || !this.phoneValid()) return;
+                        this.fraudChecking = true;
+                        this.fraudResult = null;
+                        this.fraudError = null;
+                        try {
+                            const r = await fetch('{{ route("orders-new.fraud-check") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                },
+                                body: JSON.stringify({ store_id: this.storeId, phone: this.normalizedPhone() }),
+                            });
+                            if (r.status === 429) {
+                                this.fraudError = 'Too many checks — please wait a minute and try again.';
+                            } else {
+                                const j = await r.json();
+                                if (j.success) this.fraudResult = j;
+                                else this.fraudError = j.message || 'The courier service is currently unavailable. Please try again.';
+                            }
+                        } catch (e) {
+                            this.fraudError = 'Network error — please try again.';
+                        }
+                        this.fraudChecking = false;
+                        this.fraudModal = true;
                     },
 
                     async refreshProductSearch() {

@@ -226,6 +226,106 @@ class OrderCreationController extends Controller
         return redirect()->route('orders-new.index')->with('status', 'Order deleted.');
     }
 
+    /**
+     * AJAX: courier fraud check for the phone number being registered.
+     * Informational only — creates/changes nothing except an audit log row.
+     * The courier is resolved server-side from the store's configuration;
+     * nothing courier-related is trusted from the frontend.
+     */
+    public function fraudCheck(Request $r, \App\Services\Couriers\FraudCheck\FraudCheckService $service)
+    {
+        // Validate manually: this app renders JSON exceptions only for api/*
+        // (bootstrap/app.php), so $r->validate() would redirect this AJAX call.
+        $v = \Illuminate\Support\Facades\Validator::make($r->all(), [
+            'store_id' => 'required|integer|exists:stores,id',
+            'phone'    => 'required|string|max:20',
+        ]);
+        if ($v->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $v->errors()->first(),
+                'errors'  => $v->errors(),
+            ], 422);
+        }
+        $data = $v->validated();
+
+        $u = $r->user();
+        if (! $u->canAccessStore((int) $data['store_id'])) {
+            abort(403, 'You are not assigned to this store.');
+        }
+
+        $store = Store::find($data['store_id']);
+        if (! $store->is_active) {
+            return response()->json(['success' => false, 'message' => 'This store is inactive.']);
+        }
+
+        $phone = \App\Services\Couriers\FraudCheck\FraudCheckService::normalizePhone($data['phone']);
+        if ($phone === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Enter a valid Bangladeshi mobile number (e.g. 01712345678).',
+            ], 422);
+        }
+
+        $startedAt = microtime(true);
+        $audit = [
+            'store_id'     => $store->id,
+            'masked_phone' => \App\Services\Couriers\FraudCheck\FraudCheckService::maskPhone($phone),
+        ];
+
+        try {
+            $result = $service->checkForStore($store, $phone);
+            $this->logFraudCheck($u->id, $audit + [
+                'courier'          => $result['courier_slug'],
+                'status'           => 'success',
+                'risk_level'       => $result['risk']['level'] ?? 'unknown',
+                'response_time_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+            ]);
+
+            return response()->json([
+                'success'       => true,
+                'store'         => trim(($store->dfid ? $store->dfid.' · ' : '').($store->business_name ?? $store->name)),
+                'courier'       => $result['courier'],
+                'phone'         => $result['phone'],
+                'summary'       => $result['summary'],
+                'risk'          => $result['risk'],
+                'raw_reference' => $result['raw_reference'],
+            ]);
+        } catch (\App\Services\Couriers\FraudCheck\FraudCheckException $e) {
+            $this->logFraudCheck($u->id, $audit + [
+                'status'           => $e->errorCode === 'unsupported' ? 'unsupported' : 'failed',
+                'error_code'       => $e->errorCode,
+                'response_time_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+            ]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            \Log::error('[FraudCheck] unexpected failure', ['store' => $store->id, 'err' => $e->getMessage()]);
+            $this->logFraudCheck($u->id, $audit + [
+                'status'           => 'failed',
+                'error_code'       => 'server_error',
+                'response_time_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+            ]);
+            return response()->json(['success' => false, 'message' => 'Something went wrong while checking. Please try again.']);
+        }
+    }
+
+    private function logFraudCheck(int $userId, array $details): void
+    {
+        try {
+            \App\Models\AuditLog::create([
+                'user_id'     => $userId,
+                'action'      => 'courier_fraud_check',
+                'entity_type' => Store::class,
+                'entity_id'   => $details['store_id'],
+                'after_json'  => $details,
+                'ip'          => request()->ip(),
+                'user_agent'  => request()->userAgent(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('[FraudCheck] audit log write failed', ['err' => $e->getMessage()]);
+        }
+    }
+
     /** AJAX SKU/name lookup for the product picker. */
     public function productSearch(Request $r)
     {

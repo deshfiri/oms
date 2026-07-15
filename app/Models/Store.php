@@ -11,9 +11,10 @@ class Store extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'is_active'       => 'boolean',
-        'courier_enabled' => 'boolean',
-        'last_sync_at'    => 'datetime',
+        'is_active'               => 'boolean',
+        'courier_enabled'         => 'boolean',
+        'last_sync_at'            => 'datetime',
+        'last_synced_products_at' => 'datetime',
     ];
 
     protected $hidden = ['api_secret_enc', 'webhook_secret', 'courier_credentials_enc'];

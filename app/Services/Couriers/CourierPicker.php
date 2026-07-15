@@ -77,6 +77,19 @@ class CourierPicker
     }
 
     /**
+     * The store's default courier slug (no order/zone context — used by the
+     * fraud check). Same source of truth as pickFor(): the storefront's
+     * couriers settings group. Returns null when no valid slug is configured.
+     *
+     * @throws CourierConfigException when the storefront cannot be reached
+     */
+    public function defaultSlugForStore($store): ?string
+    {
+        $settings = $this->fetchCourierSettings($store);
+        return $this->validSlug($settings['default_courier'] ?? null);
+    }
+
+    /**
      * Fetch and cache the couriers settings group from the storefront.
      * Throws CourierConfigException if the storefront cannot be reached,
      * so dispatch fails loudly rather than silently using a wrong courier.

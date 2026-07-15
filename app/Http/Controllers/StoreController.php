@@ -61,10 +61,27 @@ class StoreController extends Controller
     {
         \App\Jobs\SyncOrdersJob::dispatchSync($store->id);
         \App\Jobs\SyncPendingConsignmentsJob::dispatchSync($store->id);
-        \App\Jobs\SyncProductsJob::dispatchSync($store->id);
+        // Urgent sync: full catalogue walk so EVERY product price is re-pulled,
+        // not just rows past the incremental cursor.
+        \App\Jobs\SyncProductsJob::dispatchSync($store->id, true);
         \App\Jobs\SyncShipmentsJob::dispatchSync($store->id);
         \App\Jobs\SyncReturnsJob::dispatchSync($store->id);
-        return back()->with('status', "Sync ran for {$store->name}");
+        return back()->with('status', "Urgent sync ran for {$store->name} — orders, products & prices refreshed");
+    }
+
+    /** Urgent sync for every active store — runs inline so the admin sees fresh data on return. */
+    public function syncAll()
+    {
+        $count = 0;
+        foreach (Store::where('is_active', true)->get() as $store) {
+            \App\Jobs\SyncOrdersJob::dispatchSync($store->id);
+            \App\Jobs\SyncPendingConsignmentsJob::dispatchSync($store->id);
+            \App\Jobs\SyncProductsJob::dispatchSync($store->id, true);
+            \App\Jobs\SyncShipmentsJob::dispatchSync($store->id);
+            \App\Jobs\SyncReturnsJob::dispatchSync($store->id);
+            $count++;
+        }
+        return back()->with('status', "Urgent sync ran for {$count} store(s) — orders, products & prices refreshed");
     }
 
     public function autoSync(Request $r)
