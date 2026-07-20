@@ -5,10 +5,11 @@
             <h1>{{ $consignment->consignment_id ?? '—' }}</h1>
             <p class="sub">
                 {{ strtoupper($consignment->courier_slug) }}
-                @if($consignment->tracking_code)· tracking <span style="font-family:ui-monospace,monospace">{{ $consignment->tracking_code }}</span>@endif
+                @if($consignment->tracking_code)· tracking <x-tracking-cell :code="$consignment->tracking_code"/>@endif
                 · order <a href="{{ route('orders.show', $consignment->order) }}">{{ optional($consignment->order)->order_number }}</a>
             </p>
         </div>
+        @if($consignment->trackingUrl())<a href="{{ $consignment->trackingUrl() }}" target="_blank" rel="noopener" class="btn btn-outline">Track on courier ↗</a>@endif
         <a href="{{ route('tracking.index') }}" class="btn btn-outline">← Back</a>
     </div>
     <div class="admin-card">

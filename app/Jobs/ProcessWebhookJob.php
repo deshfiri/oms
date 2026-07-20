@@ -6,6 +6,7 @@ use App\Models\OrderMirror;
 use App\Models\RmaWorkflow;
 use App\Models\WebhookEventLog;
 use App\Services\Mirror\MirrorUpserter;
+use App\Services\Orders\OrderStateMachine;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -41,8 +42,12 @@ class ProcessWebhookJob implements ShouldQueue
 
                 case 'payment.received':
                     if (! empty($payload['order_number'])) {
+                        // Verified orders are OMS-owned — the website no longer
+                        // writes their payment fields either. Record the payment
+                        // in the OMS instead.
                         OrderMirror::where('store_id', $store->id)
                             ->where('order_number', $payload['order_number'])
+                            ->where('status', OrderStateMachine::PENDING_VERIFICATION)
                             ->update(['paid_total' => $payload['paid_total'] ?? 0, 'payment_status' => 'paid']);
                     }
                     break;

@@ -16,6 +16,7 @@
                     $c    = $o->consignments->last();
                     $caps = $courierCaps[$c?->courier_slug ?? $courier] ?? ['provides_tracking'=>true];
                     $hasCid = $c && $c->consignment_id;
+                    $trk  = $c?->trackingUrl();
                 @endphp
                 <tr>
                     <td><input type="checkbox" name="order_ids[]" value="{{ $o->id }}" class="disp-sel" data-courier="{{ $courier }}" style="accent-color:var(--a-accent)"></td>
@@ -27,7 +28,7 @@
                         @endif
                     </td>
                     <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)">
-                        @if($c && $c->tracking_code) {{ $c->tracking_code }}
+                        @if($c && ($c->tracking_code || $trk))<x-tracking-cell :code="$c->tracking_code" :url="$trk"/>
                         @elseif(! ($caps['provides_tracking'] ?? true)) <span style="font-family:'Poppins',sans-serif;font-size:10px;color:var(--a-text-3)">no tracking</span>
                         @else —
                         @endif

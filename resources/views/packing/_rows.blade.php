@@ -13,7 +13,9 @@
             <span title="Waiting for the courier API to return the consignment ID" style="display:inline-block;font-family:'Poppins',sans-serif;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:4px;padding:1px 6px">PENDING API</span>
         @endif
     </td>
-    <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)">{{ $c?->tracking_code ?? '—' }}</td>
+    <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)">
+        <x-tracking-cell :code="$c?->tracking_code" :url="$c?->trackingUrl()"/>
+    </td>
     <td style="font-size:12px">{{ optional($c?->booked_at)->diffForHumans() ?? '—' }}</td>
     <td style="text-align:right;white-space:nowrap">
         <div style="display:inline-flex;gap:4px">

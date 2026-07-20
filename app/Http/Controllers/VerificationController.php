@@ -77,12 +77,39 @@ class VerificationController extends Controller
         // Diff for the verification log
         $before = $order->only(array_keys($data));
         $order->update(array_filter($data, fn($v) => $v !== null));
-        // Recompute grand total
+        // Recompute grand total from the LOCKED item prices — never from the
+        // catalogue — so an edit here can only move the discount/shipping, not the
+        // snapshotted product prices.
         $itemsSubtotal = $order->items()->sum(\DB::raw('qty * unit_price'));
         $order->update([
             'subtotal'    => $itemsSubtotal,
             'grand_total' => max(0, $itemsSubtotal - ($order->discount ?? 0) - ($order->coupon_discount ?? 0) + ($order->shipping_total ?? 0)),
         ]);
+
+        // Push intentional order-level money changes (discount, shipping charge)
+        // back to the store so its copy — and the COD amount — matches the OMS.
+        // Item/product prices are never pushed; only these adjustments.
+        $moneyChanged = collect(['discount', 'coupon_discount', 'shipping_total'])->contains(
+            fn ($k) => array_key_exists($k, $data)
+                && (string) ($before[$k] ?? '') !== (string) ($order->$k ?? '')
+        );
+        if ($moneyChanged) {
+            // Mark our copy freshest so an in-flight stale re-pull can't revert this
+            // edit before the store echoes it back (see MirrorUpserter freshness gate).
+            $order->forceFill(['updated_at_remote' => now()])->save();
+
+            \App\Jobs\PushStorefrontAdjustmentsJob::dispatchAfterResponse(
+                $order->store_id,
+                $order->order_number,
+                [
+                    // The store keeps one discount bucket — send the OMS discount and
+                    // coupon discount combined so both sides' grand totals stay in step.
+                    'discount'       => (float) ($order->discount ?? 0) + (float) ($order->coupon_discount ?? 0),
+                    'shipping_total' => (float) ($order->shipping_total ?? 0),
+                ],
+            );
+        }
+
         OrderVerification::create([
             'order_id'      => $order->id,
             'agent_user_id' => auth()->id(),

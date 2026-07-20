@@ -195,6 +195,31 @@
         document.querySelectorAll('.admin-sidebar .admin-nav-item').forEach(a => a.addEventListener('click', () => {
             if (window.matchMedia('(max-width:900px)').matches) closeAdminSidebar();
         }));
+
+        // Copy-to-clipboard for any [data-copy] element. Delegated on document so
+        // it keeps working after tables re-render via AJAX (tracking/dispatch).
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-copy]');
+            if (!btn) return;
+            e.preventDefault();
+            const text = btn.getAttribute('data-copy');
+            if (!text) return;
+            const done = () => {
+                const original = btn.dataset.copyLabel || btn.textContent;
+                btn.dataset.copyLabel = original;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = original; }, 1500);
+            };
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => {});
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); done(); } catch (_) {}
+                ta.remove();
+            }
+        });
     </script>
     @stack('scripts')
 </body>

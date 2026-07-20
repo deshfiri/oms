@@ -219,10 +219,11 @@
         </div>
 
         {{-- ── Courier Fraud Check modal ─────────────────────────────────── --}}
-        <div x-show="fraudModal" x-cloak @keydown.escape.window="fraudModal = false"
-            style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center">
-            <div @click="fraudModal = false" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
-            <div class="admin-card" style="position:relative;width:min(440px,92vw);max-height:85vh;overflow-y:auto">
+        <template x-teleport="body">
+            <div x-show="fraudModal" x-cloak @keydown.escape.window="fraudModal = false"
+                style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px">
+                <div @click="fraudModal = false" style="position:absolute;inset:0;background:rgba(0,0,0,.45)"></div>
+                <div class="admin-card" style="position:relative;width:min(840px,92vw);max-height:85vh;overflow-y:auto;margin:auto">
                 <div class="admin-card-head" style="display:flex;justify-content:space-between;align-items:center">
                     <x-admin.section-head icon="user" title="Courier Fraud Check" />
                     <button type="button" class="btn btn-outline btn-sm" @click="fraudModal = false">✕</button>
@@ -271,8 +272,9 @@
 
                     <button type="button" class="btn btn-dark btn-block" @click="fraudModal = false">Close</button>
                 </div>
+                </div>
             </div>
-        </div>
+        </template>
     </form>
 
     @push('scripts')

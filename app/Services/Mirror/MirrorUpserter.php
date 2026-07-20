@@ -14,22 +14,39 @@ use App\Services\Couriers\CourierManager;
 use App\Services\Orders\OrderStateMachine;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class MirrorUpserter
 {
     public function order(Store $store, array $data): OrderMirror
     {
+        // Map legacy storefront statuses into the new 17-state lifecycle.
+        $mapped = $this->mapStatus($data['status'] ?? 'pending');
+
+        // Once an order exists in the OMS it is OMS-owned from that moment on.
+        // Its line items — and the product prices captured on them at creation —
+        // are LOCKED: no product sync and no order re-pull may ever rewrite them,
+        // so a historical order always keeps the price that was live the instant
+        // it was placed. Only intentional order-level changes (discount, shipping
+        // charge), a website cancellation, and courier shipment data still flow in.
+        $existing = OrderMirror::where('store_id', $store->id)
+            ->where('order_number', $data['order_number'] ?? '')
+            ->first();
+
+        if ($existing) {
+            return $this->applyToExistingOrder($existing, $mapped, $data);
+        }
+
         // DFCOMMERCE puts money under `totals`; webhooks may send flat. Support both.
+        // (The pull API sends `totals.discount`; the order.updated webhook sends a
+        // flat `discount_total` — read either so the snapshot is right at creation.)
         $totals = $data['totals'] ?? [];
         $subtotal       = $totals['subtotal']  ?? $data['subtotal']       ?? 0;
-        $discount       = $totals['discount']  ?? $data['discount']       ?? 0;
+        $discount       = $totals['discount']  ?? $data['discount']       ?? $data['discount_total'] ?? 0;
         $shippingTotal  = $totals['shipping']  ?? $data['shipping_total'] ?? 0;
         $tax            = $totals['tax']       ?? $data['tax']            ?? 0;
         $grand          = $totals['grand']     ?? $data['grand_total']    ?? 0;
         $paid           = $totals['paid']      ?? $data['paid_total']     ?? 0;
-
-        // Map legacy storefront statuses into the new 17-state lifecycle.
-        $mapped = $this->mapStatus($data['status'] ?? 'pending');
 
         $order = OrderMirror::updateOrCreate(
             ['store_id' => $store->id, 'order_number' => $data['order_number']],
@@ -67,8 +84,12 @@ class MirrorUpserter
             ],
         );
 
-        if (! empty($data['items']) && is_array($data['items'])) {
-            $order->items()->delete();
+        // Snapshot the line items ONCE, at the order's first mirror. The unit
+        // prices captured here are locked from this point on — applyToExistingOrder
+        // never rewrites them, so a later product-price change can't touch this
+        // order. Guarded on wasRecentlyCreated so a concurrent re-mirror that finds
+        // the row (rather than creating it) can never duplicate the items.
+        if ($order->wasRecentlyCreated && ! empty($data['items']) && is_array($data['items'])) {
             foreach ($data['items'] as $item) {
                 OrderItemMirror::create([
                     'order_id'      => $order->id,
@@ -91,6 +112,97 @@ class MirrorUpserter
         $this->applyShipments($order, $data);
 
         return $order;
+    }
+
+    /**
+     * An existing order is OMS-owned. The website may no longer change its line
+     * items, the product prices locked onto them, its subtotal or its lifecycle —
+     * those are what CS and the warehouse edit, and a re-pull used to silently
+     * revert them (and, worse, drag a later product-price change into a historical
+     * order).
+     *
+     * What still lands: the courier's consignment data (additive, real ids only);
+     * a cancellation raised on the website (so the warehouse never ships a parcel
+     * the customer already cancelled online); and intentional order-level money
+     * changes made on the store — the discount and shipping charge — which stay in
+     * sync in both directions. Item prices are never among them.
+     */
+    protected function applyToExistingOrder(OrderMirror $order, string $mapped, array $data): OrderMirror
+    {
+        if ($mapped === OrderStateMachine::CANCELLED && $order->status !== OrderStateMachine::CANCELLED) {
+            $from  = $order->status;
+            $order = app(OrderStateMachine::class)->drive($order, OrderStateMachine::CANCELLED, [
+                'note' => 'Cancelled on the store website',
+            ]);
+
+            if ($order->status !== OrderStateMachine::CANCELLED) {
+                // Already too far along to cancel (e.g. handed to the courier).
+                \Illuminate\Support\Facades\Log::warning('[Mirror] website cancellation not applied — no legal path', [
+                    'order' => $order->order_number,
+                    'from'  => $from,
+                ]);
+            }
+        }
+
+        $this->syncOrderAdjustments($order, $data);
+
+        $order->forceFill(['last_synced_at' => now()])->save();
+
+        $this->applyShipments($order, $data);
+
+        return $order;
+    }
+
+    /**
+     * Sync the store's intentional order-level money changes (discount + shipping
+     * charge) into an existing OMS order, then re-derive the totals FROM THE LOCKED
+     * ITEMS — never from the store's subtotal, which reflects the store's *current*
+     * product prices. Item unit prices are left untouched.
+     *
+     * Freshness gate: the store's money fields are only accepted when its copy is at
+     * least as new as ours (`updated_at` >= our recorded `updated_at_remote`). This
+     * stops an in-flight stale re-pull from reverting a discount/shipping edit a CS
+     * agent just made in the OMS and pushed to the store. The OMS bumps
+     * `updated_at_remote` when it makes such an edit (VerificationController), and
+     * both apps run on the same host, so the comparison is reliable.
+     */
+    protected function syncOrderAdjustments(OrderMirror $order, array $data): void
+    {
+        $totals   = $data['totals'] ?? [];
+        $incoming = isset($data['updated_at']) ? Carbon::parse($data['updated_at']) : null;
+        $fresh    = ! $incoming || ! $order->updated_at_remote || $incoming->gte($order->updated_at_remote);
+
+        if ($fresh) {
+            // `totals.discount` (pull API) / `discount_total` (webhook) is the store's
+            // *combined* discount. Fold it wholly into our `discount` column and clear
+            // `coupon_discount` so the grand total below never double-counts a coupon.
+            $discount = $totals['discount'] ?? $data['discount'] ?? $data['discount_total'] ?? null;
+            $shipping = $totals['shipping'] ?? $data['shipping_total'] ?? null;
+
+            if ($discount !== null) {
+                $order->discount        = (float) $discount;
+                $order->coupon_discount = 0;
+            }
+            if ($shipping !== null) {
+                $order->shipping_total = (float) $shipping;
+            }
+
+            // Advance the freshness watermark only when we accept the store's copy,
+            // so a stale re-pull can never lower it and let a later stale one slip
+            // through. (Kept monotonic: it only ever moves forward.)
+            if ($incoming) {
+                $order->updated_at_remote = $incoming;
+            }
+        }
+
+        // Totals always come from the locked snapshot, so this order can never move
+        // with the catalogue even if the store re-sends changed item prices.
+        $subtotal = (float) $order->items()->sum(DB::raw('qty * unit_price'));
+        $order->subtotal    = $subtotal;
+        $order->grand_total = max(0, $subtotal
+            - (float) ($order->discount ?? 0)
+            - (float) ($order->coupon_discount ?? 0)
+            + (float) ($order->shipping_total ?? 0));
     }
 
     /**

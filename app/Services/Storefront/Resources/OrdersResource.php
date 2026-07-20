@@ -47,6 +47,18 @@ class OrdersResource extends BaseResource
         return $this->c->request('PATCH', "orders/{$orderNumber}/shipping-address", $payload);
     }
 
+    /**
+     * Push order-level money changes made in the OMS (discount, shipping charge)
+     * back to the store. Item/product prices are never sent here — the store
+     * re-derives the grand total from its own (unchanged) line items.
+     *
+     * @param array{discount?:float, shipping_total?:float} $payload
+     */
+    public function updateAdjustments(string $orderNumber, array $payload): array
+    {
+        return $this->c->request('PATCH', "orders/{$orderNumber}/adjustments", $payload);
+    }
+
     public function addPayment(string $orderNumber, array $payload): array
     {
         return $this->c->request('POST', "orders/{$orderNumber}/payments", $payload);

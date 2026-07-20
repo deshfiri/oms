@@ -11,7 +11,7 @@
                     <td><strong>{{ optional($c->order->store ?? null)->dfid }}</strong></td>
                     <td>{{ strtoupper($c->courier_slug) }}</td>
                     <td style="font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700">{{ $c->consignment_id ?? '—' }}</td>
-                    <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)">{{ $c->tracking_code ?? '—' }}</td>
+                    <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)"><x-tracking-cell :code="$c->tracking_code" :url="$c->trackingUrl()"/></td>
                     <td><x-admin.pill :status="$c->latest_status"/></td>
                 </tr>
             @endforeach
@@ -36,7 +36,7 @@
                         <td><strong>{{ optional($c->order->store ?? null)->dfid }}</strong></td>
                         <td>{{ strtoupper($c->courier_slug) }}</td>
                         <td style="font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700">{{ $c->consignment_id ?? '—' }}</td>
-                        <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)">{{ $c->tracking_code ?? '—' }}</td>
+                        <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--a-text-3)"><x-tracking-cell :code="$c->tracking_code" :url="$c->trackingUrl()"/></td>
                         <td><x-admin.pill :status="$c->latest_status"/></td>
                         <td style="font-size:12px">{{ optional($c->booked_at)->diffForHumans() }}</td>
                         <td style="text-align:right"><a href="{{ route('tracking.show', $c) }}" class="btn btn-outline btn-sm">Events</a></td>
