@@ -238,3 +238,6 @@ The scheduler (defined in `routes/console.php`) runs `SyncStoresCommand` every 5
 | `Exchange` | `exchanges` | Exchange request workflow |
 | `StockCount` / `StockCountLine` | `stock_counts` / `stock_count_lines` | Physical stock count sessions |
 | `RmaWorkflow` | `rma_workflows` | Return merchandise authorization |
+
+
+#Deshfiri Development Team
