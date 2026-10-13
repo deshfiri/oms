@@ -20,7 +20,7 @@ class DashboardController extends Controller
             ['label' => 'Returns',      'value' => OrderMirror::whereIn('status', [S::RETURN_PENDING, S::RETURNED, S::AWAITING_RETURN_PRODUCT])->count(), 'sub' => 'Reverse logistics', 'href' => route('returns.index'), 'tone' => 'danger'],
         ];
 
-        $recent = OrderMirror::with('store:id,dfid,business_name,name')->latest('placed_at')->limit(10)->get();
+        $recent = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)->latest('placed_at')->limit(10)->get();
         $low    = ProductMirror::with('store:id,dfid,business_name,name')
             ->whereColumn('stock_quantity', '<=', 'low_stock_threshold')
             ->where('manage_stock', true)->limit(10)->get();

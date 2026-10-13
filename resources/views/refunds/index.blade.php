@@ -21,7 +21,7 @@
         @endphp
         @foreach($statuses as $val => $c)
             @php $active = (string)request('status') === (string)$val; @endphp
-            <a href="{{ route('refunds.index', $val !== '' ? ['status' => $val] : []) }}"
+            <a href="{{ route('refunds.index', array_filter(['status' => $val, 'store' => request('store')], fn ($v) => (string) $v !== '')) }}"
                style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;text-decoration:none;border:1px solid {{ $active ? 'var(--a-accent)' : 'var(--a-border)' }};background:{{ $active ? 'var(--a-accent)' : '#fff' }};color:{{ $active ? '#fff' : 'var(--a-text-2)' }}">
                 {{ $c[0] }}
                 <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:{{ $active ? 'rgba(255,255,255,.25)' : 'var(--a-surface-2)' }}">{{ $c[1] }}</span>
@@ -32,6 +32,14 @@
     <div class="admin-card">
         <div class="admin-card-head">
             <x-admin.section-head icon="reports" title="Refund log" :description="$refunds->total().' result(s)'"/>
+            <form method="GET" action="{{ route('refunds.index') }}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
+                <x-store-search/>
+                <button class="btn btn-dark">Apply</button>
+                @if(request()->hasAny(['store','store_id']))
+                    <a href="{{ route('refunds.index', request()->only('status')) }}" class="btn btn-ghost">Clear</a>
+                @endif
+            </form>
         </div>
 
         @if($refunds->isEmpty())
@@ -41,9 +49,11 @@
                 <table class="atable">
                     <thead>
                         <tr>
+                            <th style="width:36px"><x-order-pick-all/></th>
                             <th>Order</th>
                             <th>Store</th>
                             <th>Customer</th>
+                            <th>Items</th>
                             <th style="text-align:right">Grand total</th>
                             <th style="text-align:right">Refund amount</th>
                             <th>Status</th>
@@ -64,6 +74,7 @@
                             };
                         @endphp
                         <tr>
+                            <td><x-order-pick :order="$o"/></td>
                             <td>
                                 <a href="{{ route('orders.show', $o) }}"
                                    style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a>
@@ -74,6 +85,7 @@
                                 {{ $o->customer_name }}
                                 <div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div>
                             </td>
+                            <td><x-order-items :order="$o"/></td>
                             <td style="text-align:right">৳{{ number_format($o->grand_total, 2) }}</td>
                             <td style="text-align:right;font-weight:700">
                                 ৳{{ number_format($o->refund_amount ?? 0, 2) }}

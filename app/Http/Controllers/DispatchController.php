@@ -13,8 +13,9 @@ class DispatchController extends Controller
     public function index(Request $r)
     {
         // Packed parcels waiting to be handed over.
-        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'consignments')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'consignments', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PACKED)
+            ->storeFilter($r->store_id, $r->store)
             ->latest('packed_at')
             ->get()
             ->groupBy(fn ($o) => optional($o->consignments->last())->courier_slug ?? 'manual');
@@ -30,8 +31,9 @@ class DispatchController extends Controller
 
     public function rows(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'consignments')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'consignments', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PACKED)
+            ->storeFilter($r->store_id, $r->store)
             ->latest('packed_at')
             ->get()
             ->groupBy(fn ($o) => optional($o->consignments->last())->courier_slug ?? 'manual');
@@ -75,6 +77,7 @@ class DispatchController extends Controller
         $courier = $r->query('courier');
         $rows = OrderMirror::with('store','consignments')
             ->where('status', OrderStateMachine::PACKED)
+            ->storeFilter($r->store_id, $r->store)
             ->when($courier, fn($q,$c) => $q->whereHas('consignments', fn($x) => $x->where('courier_slug', $c)))
             ->get();
         return response()->streamDownload(function () use ($rows) {

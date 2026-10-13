@@ -12,10 +12,7 @@
     <form method="GET" class="admin-card" style="margin-bottom:14px">
         <div class="admin-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
             <input class="input" name="q" value="{{ request('q') }}" placeholder="Order # · name · consignment · tracking" style="width:300px">
-            <select class="input" name="store_id" onchange="this.form.submit()" style="width:auto">
-                <option value="">All stores</option>
-                @foreach($stores as $s)<option value="{{ $s->id }}" @selected(request('store_id')==$s->id)>{{ ($s->dfid?$s->dfid.' · ':'').($s->business_name ?? $s->name) }}</option>@endforeach
-            </select>
+            <x-store-search :stores="$stores"/>
             <button class="btn btn-dark">Apply</button>
             <span style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--a-text-2)">
                 Label size
@@ -45,8 +42,8 @@
                 <div class="atable-wrap">
                     <table class="atable">
                         <thead><tr>
-                            <th style="width:36px"><input type="checkbox" id="pack-all" style="accent-color:var(--a-accent)"></th>
-                            <th>Order</th><th>Store</th><th>Customer</th><th>Courier</th><th>Consignment ID</th><th>Tracking</th><th>Booked</th><th></th>
+                            <th style="width:36px"><x-order-pick-all id="pack-all"/></th>
+                            <th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Courier</th><th>Consignment ID</th><th>Tracking</th><th>Booked</th><th></th>
                         </tr></thead>
                         <tbody id="pack-tbody">
                             @include('packing._rows')

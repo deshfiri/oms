@@ -50,6 +50,7 @@
         <div class="atable-wrap">
             <table class="atable">
                 <thead><tr>
+                    <th style="width:36px"><x-order-pick-all/></th>
                     {!! $th('order','Order') !!}
                     <th>Store</th>
                     {!! $th('customer','Customer') !!}
@@ -57,12 +58,14 @@
                     {!! $th('placed','Placed') !!}
                     {!! $th('total','Total','right') !!}
                     {!! $th('status','Status') !!}
+                    <th>Items</th>
                     <th></th>
                 </tr></thead>
                 <tbody>
                     @foreach($orders as $o)
                         @php $c = $o->consignments->last(); @endphp
                         <tr>
+                            <td><x-order-pick :order="$o"/></td>
                             <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a>
                                 @if($o->placed_by_user_id)<div style="font-size:10px;color:var(--a-text-3)">OMS-placed</div>@endif</td>
                             <td style="font-size:12px"><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
@@ -73,6 +76,7 @@
                             <td style="white-space:nowrap;font-size:12px">{{ optional($o->placed_at)->format('d M Y') ?? '—' }}<div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->placed_at)->format('H:i') }}</div></td>
                             <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total) }}</td>
                             <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>
+                            <td><x-order-items :order="$o"/></td>
                             <td style="text-align:right"><a href="{{ route('orders.show', $o) }}" class="btn btn-outline btn-sm">Open</a></td>
                         </tr>
                     @endforeach

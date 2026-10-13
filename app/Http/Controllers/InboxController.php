@@ -11,8 +11,8 @@ class InboxController extends Controller
     public function index(Request $r)
     {
         $q = OrderMirror::query()
-            ->with('store:id,dfid,business_name,name')
-            ->when($r->store_id, fn($q, $id) => $q->where('store_id', $id))
+            ->with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->status, fn($q,$s) => $q->where('status', $s), fn($q) => $q->whereIn('status', ['pending','confirmed']))
             ->when($r->q, function ($q,$term) {
                 $q->where(function ($x) use ($term) {
@@ -25,7 +25,7 @@ class InboxController extends Controller
             ->latest('placed_at');
 
         $orders = $q->paginate(25)->withQueryString();
-        $stores = Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $stores = Store::forPicker();
         return view('inbox.index', compact('orders','stores'));
     }
 }

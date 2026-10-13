@@ -17,10 +17,10 @@ class PackingController extends Controller
 {
     public function index(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name','consignments','packer:id,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name','consignments','packer:id,name','items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereHas('consignments')
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")
@@ -28,16 +28,16 @@ class PackingController extends Controller
                   ->orWhereHas('consignments', fn($c) => $c->where('tracking_code','like',"%$t%")->orWhere('consignment_id','like',"%$t%"));
             }))
             ->latest('processing_at')->paginate(30);
-        $stores = \App\Models\Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $stores = \App\Models\Store::forPicker();
         return view('packing.index', compact('orders','stores'));
     }
 
     public function rows(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name','consignments','packer:id,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name','consignments','packer:id,name','items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereHas('consignments')
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")

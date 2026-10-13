@@ -31,6 +31,17 @@
         </form>
     </div>
 
+    <form method="GET" action="{{ route('returns.index') }}" class="admin-card" style="margin-bottom:14px">
+        <div class="admin-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
+            <x-store-search/>
+            <button class="btn btn-dark">Apply</button>
+            @if(request()->hasAny(['store','store_id']))
+                <a href="{{ route('returns.index', request()->only('status')) }}" class="btn btn-ghost">Clear</a>
+            @endif
+        </div>
+    </form>
+
     <div id="returns-live-region">
         @include('returns._region')
     </div>

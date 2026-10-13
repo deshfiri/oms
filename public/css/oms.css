@@ -294,3 +294,69 @@
 
 /* ---------- nicer empty card padding ---------- */
 .admin-card .admin-card-body + .admin-card-body{border-top:1px solid var(--a-border)}
+
+/* ---------- <x-order-items>: products × qty inside order lists ---------- */
+.oi-cell{width:250px;min-width:200px;max-width:260px}
+.oi-summary{font-size:10.5px;font-weight:600;letter-spacing:.02em;color:var(--a-text-2);margin-bottom:4px;text-transform:uppercase}
+.oi-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.oi-list li{display:flex;align-items:flex-start;gap:7px;min-width:0}
+.oi-qty{flex:0 0 auto;min-width:28px;padding:1px 6px;border-radius:999px;text-align:center;font-size:11px;font-weight:700;line-height:16px;background:var(--a-accent-soft);color:var(--a-accent);border:1px solid var(--a-accent-border);font-variant-numeric:tabular-nums}
+.oi-name{min-width:0;font-size:12px;line-height:18px;color:var(--a-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oi-name small{display:block;font-size:10.5px;line-height:14px;color:var(--a-text-3);overflow:hidden;text-overflow:ellipsis}
+.oi-more{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--a-accent);text-decoration:none}
+.oi-more:hover{text-decoration:underline}
+
+/* ---------- <x-store-search>: free-text store filter with suggestions ---------- */
+.store-combo{position:relative;display:inline-block}
+.store-combo-list{position:absolute;z-index:30;top:calc(100% + 4px);left:0;min-width:100%;max-height:260px;overflow-y:auto;margin:0;padding:4px;list-style:none;background:var(--a-surface);border:1px solid var(--a-border);border-radius:var(--a-r);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.store-combo-list li{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--a-text);white-space:nowrap}
+.store-combo-list li.active,.store-combo-list li:hover{background:var(--a-accent-soft)}
+.store-combo-list li.empty{cursor:default;color:var(--a-text-3);background:none}
+
+/* ---------- <x-order-pick>: ticked rows ---------- */
+.atable tr:has(> td > input[data-order-pick]:checked) > td{background:var(--a-accent-soft)}
+.atable tr:has(> td > input[data-order-pick]:checked) > td:first-child{box-shadow:inset 3px 0 0 var(--a-accent)}
+input[data-order-pick],input[data-order-pick-all]{width:16px;height:16px;cursor:pointer;vertical-align:middle}
+
+/* ---------- <x-order-pick-bar>: totals + product list for the ticked orders ---------- */
+.opick{position:fixed;z-index:250;bottom:20px;left:calc(50% + var(--a-sidebar-w) / 2);transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);display:flex;flex-direction:column;align-items:stretch;gap:8px;animation:opick-in .22s cubic-bezier(.2,.8,.3,1)}
+.opick[hidden]{display:none}
+.opick-bar{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 10px;border-radius:16px;background:var(--a-surface);color:var(--a-text);border:1px solid var(--a-accent-border);box-shadow:0 14px 40px rgba(0,0,0,.22),0 2px 6px rgba(0,0,0,.08)}
+.opick-badge{flex:0 0 auto;display:grid;place-items:center;width:34px;height:34px;margin-right:4px;border-radius:10px;background:var(--a-accent);color:#fff}
+.opick-stat{display:flex;flex-direction:column;align-items:flex-start;min-width:64px;padding:0 14px;line-height:1.1;border-left:1px solid var(--a-border)}
+.opick-badge + .opick-stat{border-left:0;padding-left:4px}
+.opick-stat strong{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--a-text)}
+.opick-stat strong.bump{animation:opick-bump .28s ease}
+.opick-stat span{margin-top:2px;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--a-text-2)}
+.opick-actions{display:flex;align-items:center;gap:6px;margin-left:8px;padding-left:12px;border-left:1px solid var(--a-border)}
+.opick-btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:10px;border:1px solid var(--a-accent-border);background:var(--a-accent-soft);color:var(--a-accent);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s}
+.opick-btn:hover{background:color-mix(in srgb,var(--a-accent) 16%,transparent)}
+.opick-btn svg{transition:transform .2s}
+.opick.is-open [data-opick-toggle] svg{transform:rotate(180deg)}
+.opick-btn-icon{width:34px;padding:0;justify-content:center;border-color:var(--a-border);background:transparent;color:var(--a-text-2)}
+.opick-btn-icon:hover{background:var(--a-surface-2);color:var(--a-text)}
+.opick-btn:focus-visible{outline:2px solid var(--a-accent);outline-offset:2px}
+.opick-panel{border-radius:16px;background:var(--a-surface);color:var(--a-text);border:1px solid var(--a-border);box-shadow:0 14px 40px rgba(0,0,0,.22);overflow:hidden;animation:opick-in .18s ease}
+.opick-panel[hidden]{display:none}
+.opick-panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 16px;border-bottom:1px solid var(--a-border);font-size:13px}
+.opick-panel-head span{font-size:11.5px;color:var(--a-text-2)}
+.opick-plist{list-style:none;margin:0;padding:6px 8px;max-height:min(320px,50vh);overflow-y:auto}
+.opick-plist li{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px}
+.opick-plist li:nth-child(even){background:var(--a-surface-2)}
+.opick-pname{flex:1;min-width:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opick-pname small{margin-left:6px;font-size:11px;color:var(--a-text-3)}
+.opick-porders{flex:0 0 auto;font-size:11px;color:var(--a-text-3)}
+@keyframes opick-in{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@keyframes opick-bump{40%{transform:scale(1.18);color:var(--a-accent)}}
+@media(prefers-reduced-motion:reduce){.opick,.opick-panel,.opick-stat strong.bump{animation:none}}
+@media(max-width:900px){
+    .opick{left:50%;bottom:12px;width:calc(100vw - 32px)}
+    .opick-bar{gap:2px;padding:6px}
+    .opick-badge{display:none}
+    .opick-stat{flex:1;min-width:0;padding:0 8px}
+    .opick-stat:first-of-type{border-left:0}
+    .opick-stat strong{font-size:16px}
+    .opick-stat span{font-size:9.5px}
+    .opick-actions{margin-left:2px;padding-left:6px}
+    .opick-btn{padding:0 10px}
+}

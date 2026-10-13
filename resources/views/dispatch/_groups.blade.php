@@ -2,13 +2,13 @@
 <div class="admin-card" style="margin-bottom:14px">
     <div class="admin-card-head">
         <x-admin.section-head icon="truck" :title="strtoupper($courier)" :description="$rows->count().' parcel(s)'"/>
-        <a href="{{ route('dispatch.csv', ['courier'=>$courier]) }}" class="btn btn-outline btn-sm">CSV</a>
+        <a href="{{ route('dispatch.csv', ['courier'=>$courier] + request()->only('store')) }}" class="btn btn-outline btn-sm">CSV</a>
     </div>
     <div class="atable-wrap">
         <table class="atable">
             <thead><tr>
-                <th style="width:36px"><input type="checkbox" class="disp-group-all" data-courier="{{ $courier }}" style="accent-color:var(--a-accent)"></th>
-                <th>Order</th><th>Store</th><th>Consignment ID</th><th>Tracking</th><th>Recipient</th><th style="text-align:right">COD</th><th></th>
+                <th style="width:36px"><x-order-pick-all class="disp-group-all" :data-courier="$courier"/></th>
+                <th>Order</th><th>Store</th><th>Items</th><th>Consignment ID</th><th>Tracking</th><th>Recipient</th><th style="text-align:right">COD</th><th></th>
             </tr></thead>
             <tbody>
             @foreach($rows as $o)
@@ -19,9 +19,10 @@
                     $trk  = $c?->trackingUrl();
                 @endphp
                 <tr>
-                    <td><input type="checkbox" name="order_ids[]" value="{{ $o->id }}" class="disp-sel" data-courier="{{ $courier }}" style="accent-color:var(--a-accent)"></td>
+                    <td><x-order-pick :order="$o" name="order_ids[]" class="disp-sel" :data-courier="$courier"/></td>
                     <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:600;text-decoration:none">{{ $o->order_number }}</a></td>
                     <td><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
+                    <td><x-order-items :order="$o"/></td>
                     <td style="font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700">
                         @if($hasCid) {{ $c->consignment_id }}
                         @else <span title="Waiting for the courier API to return the consignment ID" style="display:inline-block;font-family:'Poppins',sans-serif;font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:4px;padding:1px 6px">PENDING API</span>

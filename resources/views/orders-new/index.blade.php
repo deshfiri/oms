@@ -6,9 +6,13 @@
     </div>
 
     <form method="GET" class="admin-card" style="margin-bottom:14px">
-        <div class="admin-card-body" style="display:flex;gap:10px">
+        <div class="admin-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <input class="input" name="q" value="{{ request('q') }}" placeholder="Order # · name · phone" style="width:280px">
+            <x-store-search/>
             <button class="btn btn-dark">Apply</button>
+            @if(request()->hasAny(['q','store','store_id']))
+                <a href="{{ route('orders-new.index') }}" class="btn btn-ghost">Clear</a>
+            @endif
         </div>
     </form>
 
@@ -19,13 +23,15 @@
         @else
             <div class="atable-wrap">
                 <table class="atable">
-                    <thead><tr><th>Order</th><th>Store</th><th>Customer</th><th>Placed</th><th>Status</th><th style="text-align:right">Total</th><th></th></tr></thead>
+                    <thead><tr><th style="width:36px"><x-order-pick-all/></th><th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Placed</th><th>Status</th><th style="text-align:right">Total</th><th></th></tr></thead>
                     <tbody>
                     @foreach($orders as $o)
                         <tr>
+                            <td><x-order-pick :order="$o"/></td>
                             <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a></td>
                             <td><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
                             <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
+                            <td><x-order-items :order="$o"/></td>
                             <td>{{ optional($o->placed_at)->diffForHumans() }}</td>
                             <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>
                             <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total) }}</td>

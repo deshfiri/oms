@@ -25,9 +25,10 @@ class OrderCreationController extends Controller
     public function index(Request $r)
     {
         $u = $r->user();
-        $q = OrderMirror::with('store:id,dfid,business_name,name','placedBy:id,name')
+        $q = OrderMirror::with('store:id,dfid,business_name,name','placedBy:id,name','items:'.OrderMirror::ITEM_COLUMNS)
             ->whereNotNull('placed_by_user_id')
             ->when(! $u->isAdmin(), fn($q) => $q->where('placed_by_user_id', $u->id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")

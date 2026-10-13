@@ -9,10 +9,7 @@
             <x-admin.section-head icon="phone" title="Pending Verification" description="Call the customer · edit the order · confirm or cancel."/>
             <form method="GET" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <input type="search" name="q" value="{{ request('q') }}" placeholder="Order # · name · phone" class="input" style="width:240px">
-                <select name="store_id" class="input" onchange="this.form.submit()" style="width:auto">
-                    <option value="">All stores</option>
-                    @foreach($stores as $s)<option value="{{ $s->id }}" @selected(request('store_id')==$s->id)>{{ ($s->dfid?$s->dfid.' · ':'').($s->business_name ?? $s->name) }}</option>@endforeach
-                </select>
+                <x-store-search :stores="$stores"/>
                 <button class="btn btn-dark">Apply</button>
             </form>
         </div>
@@ -37,8 +34,8 @@
                 <div class="atable-wrap">
                     <table class="atable">
                         <thead><tr>
-                            <th style="width:36px"><input type="checkbox" id="sel-all" style="accent-color:var(--a-accent)"></th>
-                            <th>Order</th><th>Store</th><th>Customer</th><th>Placed</th><th style="text-align:right">Total</th><th></th>
+                            <th style="width:36px"><x-order-pick-all id="sel-all"/></th>
+                            <th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Placed</th><th style="text-align:right">Total</th><th></th>
                         </tr></thead>
                         <tbody id="verf-tbody">
                             @include('verification._rows')
