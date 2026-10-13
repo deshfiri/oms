@@ -53,6 +53,32 @@ class Store extends Model
         );
     }
 
+    /**
+     * Split a free-text store search into words. Spaces and the "·" used in
+     * store labels ("DFSNK001 · Sneaker Lab BD") both separate words.
+     */
+    public static function searchWords(?string $term): array
+    {
+        return preg_split('/[\s·]+/u', trim((string) $term), -1, PREG_SPLIT_NO_EMPTY);
+    }
+
+    /** Stores whose DFID / business name / name contain every word of $term. */
+    public function scopeMatching($q, ?string $term)
+    {
+        foreach (static::searchWords($term) as $w) {
+            $q->where(fn ($x) => $x->where('dfid', 'like', "%$w%")
+                ->orWhere('business_name', 'like', "%$w%")
+                ->orWhere('name', 'like', "%$w%"));
+        }
+        return $q;
+    }
+
+    /** The store list used by store filters / search suggestions. */
+    public static function forPicker()
+    {
+        return static::orderBy('business_name')->get(['id', 'dfid', 'business_name', 'name']);
+    }
+
     /** Return stored credentials for a specific courier slug. */
     public function credentialsFor(string $slug): array
     {

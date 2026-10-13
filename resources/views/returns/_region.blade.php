@@ -12,7 +12,7 @@
     @endphp
     @foreach($chips as $val => $c)
         @php $active = (string)request('status') === (string)$val; @endphp
-        <a href="{{ route('returns.index', $val !== '' ? ['status'=>$val] : []) }}"
+        <a href="{{ route('returns.index', array_filter(['status' => $val, 'store' => request('store')], fn ($v) => (string) $v !== '')) }}"
            style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;text-decoration:none;border:1px solid {{ $active ? 'var(--a-accent)' : 'var(--a-border)' }};background:{{ $active ? 'var(--a-accent)' : '#fff' }};color:{{ $active ? '#fff' : 'var(--a-text-2)' }}">
             {{ $c[0] }}
             <span style="font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:{{ $active ? 'rgba(255,255,255,.25)' : 'var(--a-surface-2)' }}">{{ $c[1] }}</span>
@@ -25,6 +25,7 @@
     <div class="admin-card-head">
         <x-admin.section-head icon="rotate" title="Returns workflow" :description="$orders->total().' result(s)'"/>
         <form method="GET" action="{{ route('returns.index') }}">
+            @if(request('store'))<input type="hidden" name="store" value="{{ request('store') }}">@endif
             <select name="status" class="input" onchange="this.form.submit()" style="width:auto">
                 <option value="">All return states</option>
                 @foreach([
@@ -43,13 +44,15 @@
     @else
         <div class="atable-wrap">
             <table class="atable">
-                <thead><tr><th>Order</th><th>Store</th><th>Customer</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th style="width:36px"><x-order-pick-all/></th><th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Reason</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 @foreach($orders as $o)
                     <tr>
+                        <td><x-order-pick :order="$o"/></td>
                         <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a></td>
                         <td><strong>{{ optional($o->store)->dfid }}</strong></td>
                         <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
+                        <td><x-order-items :order="$o"/></td>
                         <td>{{ $o->return_reason ? ucwords(str_replace('_',' ',$o->return_reason)) : '—' }}</td>
                         <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>
                         <td style="text-align:right">

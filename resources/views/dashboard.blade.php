@@ -15,18 +15,20 @@
             <div class="admin-card-head"><x-admin.section-head icon="cart" title="Recent orders" description="Most recent orders from any merchant."/></div>
             <div class="atable-wrap">
                 <table class="atable">
-                    <thead><tr><th>Order</th><th>Store</th><th>Customer</th><th>Status</th><th style="text-align:right">Total</th></tr></thead>
+                    <thead><tr><th style="width:36px"><x-order-pick-all/></th><th>Order</th><th>Store</th><th>Customer</th><th>Items</th><th>Status</th><th style="text-align:right">Total</th></tr></thead>
                     <tbody>
                     @forelse($recentOrders as $o)
                         <tr>
+                            <td><x-order-pick :order="$o"/></td>
                             <td><a href="{{ route('orders.show', $o) }}" style="font-weight:700;color:var(--a-accent);text-decoration:none">{{ $o->order_number }}</a></td>
                             <td style="font-size:12px"><strong>{{ optional($o->store)->dfid ?? '—' }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name ?? '' }}</div></td>
                             <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
+                            <td><x-order-items :order="$o"/></td>
                             <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>
                             <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total, 2) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5"><x-admin.empty icon="inbox" title="No orders yet" description="Register a store and run sync to pull orders from DFCOMMERCE." /></td></tr>
+                        <tr><td colspan="7"><x-admin.empty icon="inbox" title="No orders yet" description="Register a store and run sync to pull orders from DFCOMMERCE." /></td></tr>
                     @endforelse
                     </tbody>
                 </table>

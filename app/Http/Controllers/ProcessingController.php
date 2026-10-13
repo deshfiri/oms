@@ -14,26 +14,26 @@ class ProcessingController extends Controller
     {
         // Processing = confirmed orders NOT yet sent to the courier (no consignment).
         // Once the courier is booked the order moves to the Packing queue.
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereDoesntHave('consignments')
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")
                   ->orWhere('customer_phone','like',"%$t%");
             }))
             ->latest('processing_at')->paginate(30);
-        $stores = \App\Models\Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $stores = \App\Models\Store::forPicker();
         return view('processing.index', compact('orders','stores'));
     }
 
     public function rows(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereDoesntHave('consignments')
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")

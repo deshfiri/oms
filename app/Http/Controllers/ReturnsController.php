@@ -20,13 +20,14 @@ class ReturnsController extends Controller
             OrderStateMachine::AWAITING_RETURN_PRODUCT,
         ];
 
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->whereIn('status', $states)
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->status, fn($q,$s) => $q->where('status', $s))
             ->latest('return_pending_at')->paginate(30)->withQueryString();
 
         // Counts per state for the filter chips.
-        $counts = OrderMirror::query()->whereIn('status', $states)
+        $counts = OrderMirror::query()->whereIn('status', $states)->storeFilter($r->store_id, $r->store)
             ->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
 
         return view('returns.index', compact('orders', 'counts'));
@@ -39,14 +40,15 @@ class ReturnsController extends Controller
             OrderStateMachine::RETURNED,
             OrderStateMachine::AWAITING_RETURN_PRODUCT,
         ];
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->whereIn('status', $states)
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->status, fn($q,$s) => $q->where('status', $s))
             ->latest('return_pending_at')
             ->paginate(30)
             ->withPath(route('returns.index'))
             ->appends($r->except('page'));
-        $counts = OrderMirror::query()->whereIn('status', $states)
+        $counts = OrderMirror::query()->whereIn('status', $states)->storeFilter($r->store_id, $r->store)
             ->selectRaw('status, COUNT(*) as c')->groupBy('status')->pluck('c', 'status');
         return response()->json([
             'html' => view('returns._region', compact('orders', 'counts'))->render(),

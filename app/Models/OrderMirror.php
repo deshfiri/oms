@@ -70,6 +70,21 @@ class OrderMirror extends Model
     public function exchanges()       { return $this->hasMany(Exchange::class, 'original_order_id'); }
     public function exchangeOriginal(){ return $this->belongsTo(self::class, 'exchange_of_order_id'); }
 
+    /** Columns the order-items cell (<x-order-items>) needs — eager-load as "items:".self::ITEM_COLUMNS. */
+    public const ITEM_COLUMNS = 'id,order_id,name,variant_label,qty';
+
+    /**
+     * Store filter shared by every order list: an exact store id (?store_id=,
+     * kept for old links) and/or the free-text store search (?store=), where
+     * every word must match the same store's DFID or name.
+     */
+    public function scopeStoreFilter($q, $storeId = null, ?string $storeSearch = null)
+    {
+        return $q
+            ->when($storeId, fn ($q, $id) => $q->where('store_id', $id))
+            ->when(Store::searchWords($storeSearch), fn ($q) => $q->whereHas('store', fn ($s) => $s->matching($storeSearch)));
+    }
+
     public function statusLabel(): string
     {
         return self::LABELS[$this->status] ?? ucwords(str_replace('_',' ',(string)$this->status));

@@ -221,6 +221,7 @@
             }
         });
     </script>
+    <x-order-pick-bar/>
     @stack('scripts')
 </body>
 </html>

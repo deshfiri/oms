@@ -10,12 +10,7 @@
             <x-admin.section-head icon="inbox" title="Incoming orders" description="Click a row to open. Use Accept & Pick to spawn a picking session."/>
             <form method="GET" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                 <input type="search" name="q" value="{{ request('q') }}" placeholder="Order # · name · phone" class="input" style="width:240px;padding:7px 12px;font-size:13px">
-                <select name="store_id" class="input" style="width:auto;padding:7px 10px;font-size:13px" onchange="this.form.submit()">
-                    <option value="">All stores</option>
-                    @foreach($stores as $s)
-                        <option value="{{ $s->id }}" @selected(request('store_id')==$s->id)>{{ ($s->dfid ? $s->dfid.' · ' : '').($s->business_name ?? $s->name) }}</option>
-                    @endforeach
-                </select>
+                <x-store-search :stores="$stores" style="padding:7px 12px;font-size:13px"/>
                 <select name="status" class="input" style="width:auto;padding:7px 10px;font-size:13px" onchange="this.form.submit()">
                     <option value="">Pending / Confirmed</option>
                     @foreach(\App\Models\OrderMirror::STATUSES as $s)
@@ -23,7 +18,7 @@
                     @endforeach
                 </select>
                 <button class="btn btn-dark">Apply</button>
-                @if(request()->hasAny(['q','status','store_id','payment']))
+                @if(request()->hasAny(['q','status','store','store_id','payment']))
                     <a href="{{ route('inbox.index') }}" class="btn btn-ghost">Clear</a>
                 @endif
             </form>
@@ -36,9 +31,11 @@
                 <table class="atable">
                     <thead>
                         <tr>
+                            <th style="width:36px"><x-order-pick-all/></th>
                             <th>Order</th>
                             <th>Store</th>
                             <th>Customer</th>
+                            <th>Items</th>
                             <th>Placed</th>
                             <th style="text-align:right">Total</th>
                             <th>Status</th>
@@ -48,12 +45,14 @@
                     <tbody>
                     @foreach($orders as $o)
                         <tr>
+                            <td><x-order-pick :order="$o"/></td>
                             <td><a href="{{ route('orders.show', $o) }}" style="font-weight:700;color:var(--a-accent);text-decoration:none">{{ $o->order_number }}</a></td>
                             <td style="font-size:12px">
                                 <strong>{{ $o->store->dfid ?? '—' }}</strong>
                                 <div style="font-size:11px;color:var(--a-text-3)">{{ $o->store->business_name ?? $o->store->name ?? '' }}</div>
                             </td>
                             <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
+                            <td><x-order-items :order="$o"/></td>
                             <td style="white-space:nowrap">{{ optional($o->placed_at)->format('d M Y') ?? '—' }}<div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->placed_at)->format('H:i') }}</div></td>
                             <td style="text-align:right;font-weight:600">৳{{ number_format($o->grand_total) }}</td>
                             <td><x-admin.pill :status="$o->status" :label="$o->statusLabel()"/></td>

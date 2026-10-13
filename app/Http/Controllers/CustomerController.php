@@ -41,7 +41,7 @@ class CustomerController extends Controller
     public function show(CustomerMirror $customer)
     {
         $customer->load('store:id,dfid,business_name,name');
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('store_id', $customer->store_id)
             ->where(function ($q) use ($customer) {
                 $q->where('customer_email', $customer->email)

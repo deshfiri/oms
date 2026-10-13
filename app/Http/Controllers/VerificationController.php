@@ -12,29 +12,29 @@ class VerificationController extends Controller
 {
     public function index(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PENDING_VERIFICATION)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")
                   ->orWhere('customer_phone','like',"%$t%");
             }))
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->latest('placed_at')->paginate(25);
-        $stores = \App\Models\Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $stores = \App\Models\Store::forPicker();
         return view('verification.index', compact('orders','stores'));
     }
 
     public function rows(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name')
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->where('status', OrderStateMachine::PENDING_VERIFICATION)
             ->when($r->q, fn($q,$t) => $q->where(function($x) use ($t) {
                 $x->where('order_number','like',"%$t%")
                   ->orWhere('customer_name','like',"%$t%")
                   ->orWhere('customer_phone','like',"%$t%");
             }))
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->latest('placed_at')
             ->paginate(25)
             ->withPath(route('verification.index'))

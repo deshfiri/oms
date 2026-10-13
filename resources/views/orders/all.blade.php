@@ -36,12 +36,9 @@
                 <span style="font-size:11px;color:var(--a-text-2)">Search</span>
                 <input class="input" name="q" value="{{ request('q') }}" placeholder="Order # · name · phone · email · tracking · consignment · SKU">
             </label>
-            <label><span style="font-size:11px;color:var(--a-text-2)">Store</span>
-                <select class="input" name="store_id" style="width:auto">
-                    <option value="">All</option>
-                    @foreach($stores as $s)<option value="{{ $s->id }}" @selected(request('store_id')==$s->id)>{{ ($s->dfid?$s->dfid.' · ':'').($s->business_name ?? $s->name) }}</option>@endforeach
-                </select>
-            </label>
+            <div><span style="display:block;font-size:11px;color:var(--a-text-2)">Store</span>
+                <x-store-search :stores="$stores" width="260px"/>
+            </div>
             <label><span style="font-size:11px;color:var(--a-text-2)">Payment</span>
                 <select class="input" name="payment_method" style="width:auto">
                     <option value="">Any</option>
@@ -72,7 +69,7 @@
             {{-- keep current status filter when applying other filters --}}
             @foreach($activeStatuses as $st)<input type="hidden" name="status[]" value="{{ $st }}">@endforeach
             <button class="btn btn-dark">Apply</button>
-            @if(request()->hasAny(['q','store_id','payment_method','courier','zone','source','from','to','status']))
+            @if(request()->hasAny(['q','store','store_id','payment_method','courier','zone','source','from','to','status']))
                 <a href="{{ route('orders.index') }}" class="btn btn-ghost">Clear</a>
             @endif
         </div>
@@ -162,7 +159,10 @@
                     if (!rowsResp.ok) throw new Error('rows ' + rowsResp.status);
 
                     var html = await rowsResp.text();
+                    // Keep ticked orders ticked across the refresh.
+                    var picked = new Set([...region.querySelectorAll('input[data-order-pick]:checked')].map(function (c) { return c.value; }));
                     region.innerHTML = html;
+                    region.querySelectorAll('input[data-order-pick]').forEach(function (c) { c.checked = picked.has(c.value); });
                 }
 
                 lastSig = sig;

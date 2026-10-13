@@ -10,15 +10,16 @@ class RefundController extends Controller
 {
     public function index(Request $r)
     {
-        $refunds = OrderMirror::with('store:id,dfid,business_name,name')
+        $refunds = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->whereNotNull('refund_status')
             ->when($r->status, fn($q, $s) => $q->where('refund_status', $s))
-            ->when($r->store,  fn($q, $s) => $q->where('store_id', $s))
+            ->storeFilter($r->store_id, $r->store)
             ->latest('refunded_at')
             ->paginate(30)
             ->withQueryString();
 
         $counts = OrderMirror::whereNotNull('refund_status')
+            ->storeFilter($r->store_id, $r->store)
             ->selectRaw('refund_status, COUNT(*) as c')
             ->groupBy('refund_status')
             ->pluck('c', 'refund_status');

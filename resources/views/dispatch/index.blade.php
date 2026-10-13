@@ -2,7 +2,7 @@
     @section('title', 'Dispatch')
     <div class="admin-page-header">
         <div><h1>Dispatch manifest</h1><p class="sub">Packed parcels grouped by courier — select single or bulk, hand over, print.</p></div>
-        <a href="{{ route('dispatch.csv') }}" class="btn btn-outline">Export CSV (all)</a>
+        <a href="{{ route('dispatch.csv', request()->only('store')) }}" class="btn btn-outline">Export CSV ({{ request('store') ? 'filtered' : 'all' }})</a>
     </div>
 
     <x-scan-bar
@@ -10,9 +10,25 @@
         placeholder="Scan or paste Order #, Consignment ID, or Tracking code → marks parcel as Dispatched"
         hint="One per line for bulk handover."/>
 
+    <form method="GET" class="admin-card" style="margin-bottom:14px">
+        <div class="admin-card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <x-store-search/>
+            <button class="btn btn-dark">Apply</button>
+            @if(request()->hasAny(['store','store_id']))
+                <a href="{{ route('dispatch.index') }}" class="btn btn-ghost">Clear</a>
+            @endif
+        </div>
+    </form>
+
     @php $total = $orders->sum(fn($g) => $g->count()); @endphp
     @if($total === 0)
-        <div class="admin-card"><x-admin.empty icon="truck" title="No parcels packed" description="Pack orders to add them to this manifest."/></div>
+        <div class="admin-card">
+            @if(request()->hasAny(['store','store_id']))
+                <x-admin.empty icon="search" title="No packed parcels for this store" description="Change or clear the store search above."/>
+            @else
+                <x-admin.empty icon="truck" title="No parcels packed" description="Pack orders to add them to this manifest."/>
+            @endif
+        </div>
     @else
         <div class="admin-card" style="margin-bottom:14px">
             <div class="admin-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">

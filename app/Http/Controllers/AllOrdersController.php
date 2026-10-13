@@ -75,7 +75,7 @@ class AllOrdersController extends Controller
 
         // Pagination links always point to /orders, regardless of whether this
         // request came from the main page or the AJAX /orders/rows endpoint.
-        $orders = $query->with('store:id,dfid,business_name,name', 'consignments')
+        $orders = $query->with('store:id,dfid,business_name,name', 'consignments', 'items:'.OrderMirror::ITEM_COLUMNS)
             ->paginate($perPage)
             ->withPath(route('orders.index'))
             ->appends($r->except('page'));
@@ -87,7 +87,7 @@ class AllOrdersController extends Controller
             ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
         $totalCount = (clone $countQuery)->count();
 
-        $stores   = Store::orderBy('business_name')->get(['id','dfid','business_name','name']);
+        $stores   = Store::forPicker();
         $couriers = array_keys(CourierManager::ADAPTERS);
         $statuses = S::STATUSES;
         $labels   = S::LABELS;
@@ -116,7 +116,7 @@ class AllOrdersController extends Controller
                 $statuses = is_array($r->status) ? $r->status : explode(',', $r->status);
                 $q->whereIn('status', array_filter($statuses));
             })
-            ->when($r->store_id, fn($q,$id) => $q->where('store_id', $id))
+            ->storeFilter($r->store_id, $r->store)
             ->when($r->payment_method, fn($q,$p) => $q->where('payment_method', $p))
             ->when($r->zone, fn($q,$z) => $q->where('shipping_zone', $z))
             ->when($r->courier, fn($q,$slug) => $q->whereHas('consignments', fn($c) => $c->where('courier_slug', $slug)))
