@@ -90,9 +90,10 @@
     .mid-note { font-size:7.5px; line-height:1.2; margin-top:1px; border-top:1px dashed #999; padding-top:1px;
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    /* ITEMS — single line */
+    /* ITEMS — single line. min-height stops the grid from squeezing this row
+       to nothing (overflow:hidden lets it shrink to 0) when the address is long. */
     .lbl-items {
-        font-size:8px; line-height:1.2;
+        font-size:8px; line-height:1.2; min-height:13px;
         border-top:1px dashed #999; padding-top:2px;
         white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
@@ -130,6 +131,17 @@
     .ft img    { height: 28px; }
     .ft .code  { font-size: 11px; letter-spacing: 1.8px; }
     @endif
+
+    /* Too much content for 3in (long address, notes …): fitLabels() adds these
+       one step at a time until the label fits, so nothing gets cut off. */
+    .lbl.fit-1 { gap: 1px; padding-top: 4px; padding-bottom: 3px; }
+    .lbl.fit-1 .lbl-to .addr, .lbl.fit-1 .lbl-to .loc { line-height: 1.18; }
+    .lbl.fit-1 .mid-row { line-height: 1.15; }
+    .lbl.fit-2 .lbl-head { gap: 2px; padding-bottom: 2px; }
+    .lbl.fit-2 .lbl-to .qr img { width: 54px; height: 54px; }
+    .lbl.fit-2 .mid-row { font-size: 7.5px; line-height: 1.1; }
+    .lbl.fit-3 .lbl-to .nm { font-size: 10px; }
+    .lbl.fit-3 .lbl-to .addr, .lbl.fit-3 .lbl-to .loc { font-size: 7.5px; }
 </style>
 </head>
 <body>
@@ -214,5 +226,16 @@
             </div>
         </div>
     @endforeach
+<script>
+// Tighten any label whose content is taller than the sticker (see .fit-* styles).
+function fitLabels() {
+    document.querySelectorAll('.lbl').forEach(function (l) {
+        l.classList.remove('fit-1', 'fit-2', 'fit-3');
+        for (var step = 1; step <= 3 && l.scrollHeight > l.clientHeight; step++) l.classList.add('fit-' + step);
+    });
+}
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(fitLabels);
+window.addEventListener('beforeprint', fitLabels);
+</script>
 </body>
 </html>

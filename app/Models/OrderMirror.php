@@ -70,6 +70,9 @@ class OrderMirror extends Model
     public function exchanges()       { return $this->hasMany(Exchange::class, 'original_order_id'); }
     public function exchangeOriginal(){ return $this->belongsTo(self::class, 'exchange_of_order_id'); }
 
+    /** Courier note length — Steadfast's create_order `note` takes at most 480 characters. */
+    public const COURIER_NOTE_MAX = 480;
+
     /** Columns the order-items cell (<x-order-items>) needs — eager-load as "items:".self::ITEM_COLUMNS. */
     public const ITEM_COLUMNS = 'id,order_id,name,variant_label,qty';
 

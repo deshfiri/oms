@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\OrderMirror;
 use App\Services\Couriers\CourierBookingFailedException;
+use App\Services\Couriers\CourierPicker;
 use App\Services\Couriers\ShipmentBooker;
 use App\Services\Orders\OrderStateMachine;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class ProcessingController extends Controller
     {
         // Processing = confirmed orders NOT yet sent to the courier (no consignment).
         // Once the courier is booked the order moves to the Packing queue.
-        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS, 'exchangeOriginal:id,order_number')
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereDoesntHave('consignments')
             ->storeFilter($r->store_id, $r->store)
@@ -30,7 +31,7 @@ class ProcessingController extends Controller
 
     public function rows(Request $r)
     {
-        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS)
+        $orders = OrderMirror::with('store:id,dfid,business_name,name', 'items:'.OrderMirror::ITEM_COLUMNS, 'exchangeOriginal:id,order_number')
             ->where('status', OrderStateMachine::PROCESSING)
             ->whereDoesntHave('consignments')
             ->storeFilter($r->store_id, $r->store)
@@ -89,6 +90,60 @@ class ProcessingController extends Controller
         if ($skip)   $msg .= " $skip already sent.";
         return redirect()->route('labels.batch', ['ids' => implode(',', $okIds)])
             ->with($failed ? 'warning' : 'status', $msg);
+    }
+
+    /**
+     * Courier booking page for an exchange replacement order. Steadfast can't
+     * create exchange parcels over its API, so for Steadfast stores this shows
+     * what to enter in the Steadfast panel and takes the consignment ID back;
+     * other couriers use the normal "Send to courier" booking.
+     */
+    public function exchangeBooking(OrderMirror $order, CourierPicker $picker)
+    {
+        abort_unless($order->exchange_of_order_id, 404);
+        if ($order->consignments()->exists()) {
+            return redirect()->route('labels.single', $order)->with('status', 'Already sent to courier — label ready.');
+        }
+        abort_unless($order->status === OrderStateMachine::PROCESSING, 422);
+
+        try {
+            $slug = $picker->pickFor($order);
+            $courierError = null;
+        } catch (\Throwable $e) {
+            $slug = null;
+            $courierError = $e->getMessage();
+        }
+
+        $order->load('items', 'store', 'exchangeOriginal.items');
+        return view('processing.exchange-booking', [
+            'order'        => $order,
+            'slug'         => $slug,
+            'manual'       => $slug && ShipmentBooker::needsManualExchangeBooking($order, $slug),
+            'courierError' => $courierError,
+            'cod'          => $order->payment_method === 'cod' ? (float) $order->grand_total : 0.0,
+        ]);
+    }
+
+    /** Record the Steadfast exchange parcel's consignment — saved only once Steadfast confirms it. */
+    public function attachConsignment(Request $r, OrderMirror $order, ShipmentBooker $booker)
+    {
+        $data = $r->validate([
+            'consignment_id' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'tracking_code'  => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
+        ], [
+            'consignment_id.regex' => 'The consignment ID may only contain letters, digits, - and _.',
+            'tracking_code.regex'  => 'The tracking code may only contain letters, digits, - and _.',
+        ]);
+        abort_unless($order->exchange_of_order_id && $order->status === OrderStateMachine::PROCESSING, 422);
+
+        try {
+            $cons = $booker->attachManual($order, $data['consignment_id'], $data['tracking_code'] ?? null);
+        } catch (CourierBookingFailedException $e) {
+            return back()->withInput()->with('error', "Consignment not saved — {$order->order_number} stays in Processing. {$e->getMessage()}");
+        }
+
+        return redirect()->route('labels.single', $order)
+            ->with('status', "Steadfast exchange consignment {$cons->consignment_id} verified & saved. Label ready — pack & scan to mark Packed.");
     }
 
     /** Single-order courier registration — only succeeds with a REAL consignment. */

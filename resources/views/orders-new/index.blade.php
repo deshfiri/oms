@@ -28,7 +28,8 @@
                     @foreach($orders as $o)
                         <tr>
                             <td><x-order-pick :order="$o"/></td>
-                            <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a></td>
+                            <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a>
+                                <div><x-exchange-badge :order="$o"/></div></td>
                             <td><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
                             <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
                             <td><x-order-items :order="$o"/></td>

@@ -74,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/orders-new/{order}',       [\App\Http\Controllers\OrderCreationController::class, 'destroy'])->name('orders-new.destroy');
         Route::get('/orders-new/product-search',   [\App\Http\Controllers\OrderCreationController::class, 'productSearch'])->name('orders-new.product-search');
         Route::get('/orders-new/shipping-quote',    [\App\Http\Controllers\OrderCreationController::class, 'shippingQuote'])->name('orders-new.shipping-quote');
+        Route::get('/orders-new/exchange-lookup',   [\App\Http\Controllers\OrderCreationController::class, 'exchangeLookup'])->name('orders-new.exchange-lookup');
         // Courier fraud check — informational, rate-limited per user to stop abuse.
         Route::post('/orders-new/fraud-check',     [\App\Http\Controllers\OrderCreationController::class, 'fraudCheck'])
             ->middleware('throttle:15,1')->name('orders-new.fraud-check');
@@ -104,6 +105,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/processing', fn () => redirect()->route('processing.index')->with('error', 'Use the action buttons (Send to courier &amp; print labels).'));
         Route::post('/processing/bulk-pack',  [ProcessingController::class, 'bulkPack'])->name('processing.bulk-pack');
         Route::post('/processing/{order}/start-packing', [ProcessingController::class, 'startPacking'])->name('processing.start-packing');
+        Route::get('/processing/{order}/exchange-booking',  [ProcessingController::class, 'exchangeBooking'])->name('processing.exchange-booking');
+        Route::post('/processing/{order}/exchange-booking', [ProcessingController::class, 'attachConsignment'])->name('processing.exchange-booking.store');
 
         Route::get('/packing',                     [PackingController::class, 'index'])->name('packing.index');
         Route::get('/packing/rows',                [PackingController::class, 'rows'])->name('packing.rows');

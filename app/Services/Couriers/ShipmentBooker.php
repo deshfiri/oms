@@ -53,6 +53,18 @@ class ShipmentBooker
             throw new CourierBookingFailedException($e->getMessage());
         }
 
+        // ── Exchange orders on Steadfast are never auto-booked ───────────────
+        // The Steadfast API has no exchange option — booking here would create
+        // a REGULAR parcel. The operator books it in the Steadfast panel as an
+        // exchange parcel and records the consignment via attachManual().
+        if (self::needsManualExchangeBooking($order, $slug)) {
+            Log::info('[ShipmentBooker] exchange order — Steadfast auto-booking blocked', ['order' => $order->order_number]);
+            throw new CourierBookingFailedException(
+                "{$order->order_number} is an exchange order. The Steadfast API cannot create exchange parcels, so it was not booked as a regular parcel. "
+                .'Create it in the Steadfast panel with "Exchange parcel" ticked, then enter its consignment ID from Processing → Book exchange.'
+            );
+        }
+
         // ── Stub mode — no real API call, synthetic consignment only ─────────
         $mode = $order->store?->courier_mode ?? 'live';
         if ($mode === 'stub') {
@@ -85,7 +97,9 @@ class ShipmentBooker
                     'label_url'      => $remote['label_url'],
                     'cod_amount'     => $cod,
                     'latest_status'  => 'booked',
-                    'raw_payload'    => $remote['raw'] + ['source' => 'storefront_api'],
+                    'raw_payload'    => $remote['raw'] + ['source' => 'storefront_api'] + $this->courierNoteTrail($order,
+                        // Forwarded only if the store echoes the note back (see docs/STORE-COURIER-NOTE-CHANGE.md).
+                        ($remote['courier_note'] ?? null) === $order->courier_note ? 'storefront' : 'storefront_unconfirmed'),
                     'booked_at'      => now(),
                 ]);
             }
@@ -107,7 +121,7 @@ class ShipmentBooker
         if ($caps['direct_api'] ?? false) {
             try {
                 Log::info('[ShipmentBooker] attempting direct adapter booking', ['order' => $order->order_number, 'adapter' => get_class($adapter)]);
-                $book = $adapter->bookConsignment($order, ['cod_amount' => $cod]);
+                $book = $adapter->bookConsignment($order, ['cod_amount' => $cod, 'note' => $order->courier_note ?: null]);
                 if (! empty($book['consignment_id']) || ! empty($book['tracking_code'])) {
                     $this->recordOnStorefront($order, $slug, $book, $cod);
                     Log::info('[ShipmentBooker] direct booking succeeded', ['order' => $order->order_number, 'slug' => $slug, 'consignment' => $book['consignment_id']]);
@@ -121,7 +135,7 @@ class ShipmentBooker
                         'label_url'      => $book['label_url'],
                         'cod_amount'     => $cod,
                         'latest_status'  => 'booked',
-                        'raw_payload'    => ($book['raw'] ?? []) + ['source' => 'oms_direct'],
+                        'raw_payload'    => ($book['raw'] ?? []) + ['source' => 'oms_direct'] + $this->courierNoteTrail($order, $adapter->slug().'_api'),
                         'booked_at'      => now(),
                     ]);
                 }
@@ -152,6 +166,76 @@ class ShipmentBooker
         );
     }
 
+    /** Exchange replacement orders shipped with Steadfast must be booked in the Steadfast panel. */
+    public static function needsManualExchangeBooking(OrderMirror $order, string $slug): bool
+    {
+        return $order->exchange_of_order_id !== null && $slug === 'steadfast';
+    }
+
+    /**
+     * Record a consignment the operator created in the Steadfast panel (an
+     * exchange parcel). Saved only after Steadfast confirms the consignment
+     * exists on this store's account (status_by_cid); stub-mode stores skip
+     * the API call like every other stub booking.
+     *
+     * @throws CourierBookingFailedException with an operator-facing reason
+     */
+    public function attachManual(OrderMirror $order, string $consignmentId, ?string $trackingCode = null): CourierConsignment
+    {
+        $consignmentId = trim($consignmentId);
+        $trackingCode  = $trackingCode !== null && trim($trackingCode) !== '' ? trim($trackingCode) : null;
+
+        try {
+            $slug = $this->picker->pickFor($order);
+        } catch (CourierConfigException $e) {
+            throw new CourierBookingFailedException($e->getMessage());
+        }
+        if (! self::needsManualExchangeBooking($order, $slug)) {
+            throw new CourierBookingFailedException('Manual consignment entry is only for Steadfast exchange orders — use "Send to courier" for this order.');
+        }
+        if ($order->consignments()->exists()) {
+            throw new CourierBookingFailedException("{$order->order_number} already has a consignment.");
+        }
+        $taken = CourierConsignment::where('courier_slug', $slug)->where('consignment_id', $consignmentId)->first();
+        if ($taken) {
+            throw new CourierBookingFailedException("Consignment {$consignmentId} is already recorded for order ".($taken->order?->order_number ?? '#'.$taken->order_id).'.');
+        }
+
+        $cod     = $order->payment_method === 'cod' ? (float) $order->grand_total : 0.0;
+        $adapter = $this->couriers->adapter($slug);
+        $mode    = $order->store?->courier_mode ?? 'live';
+
+        if ($mode === 'stub') {
+            $native = 'in_review';
+        } else {
+            try {
+                $native = $adapter->consignmentStatus($order, $consignmentId);
+            } catch (\Throwable $e) {
+                Log::warning('[ShipmentBooker] manual exchange consignment not verified', ['order' => $order->order_number, 'cid' => $consignmentId, 'err' => $e->getMessage()]);
+                throw new CourierBookingFailedException($this->cleanCourierError($e->getMessage()));
+            }
+        }
+
+        $cons = CourierConsignment::create([
+            'order_id'       => $order->id,
+            'courier_slug'   => $slug,
+            'courier_name'   => $adapter->displayName(),
+            'consignment_id' => $consignmentId,
+            'tracking_code'  => $trackingCode,
+            'tracking_url'   => null, // trackingUrl() links Steadfast's public tracking page
+            'label_url'      => null,
+            'cod_amount'     => $cod,
+            'latest_status'  => $adapter->normalizeStatus($native),
+            'raw_payload'    => ['source' => 'manual_exchange', 'mode' => $mode, 'delivery_status' => $native, 'entered_by' => auth()->id()]
+                + $this->courierNoteTrail($order, 'steadfast_panel'),
+            'booked_at'      => now(),
+        ]);
+        $this->recordOnStorefront($order, $slug, ['consignment_id' => $consignmentId, 'tracking_code' => $trackingCode], $cod);
+
+        Log::info('[ShipmentBooker] manual exchange consignment recorded', ['order' => $order->order_number, 'cid' => $consignmentId, 'status' => $native]);
+        return $cons;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /** Create a synthetic consignment for stub/test mode — no real API called. */
@@ -168,7 +252,7 @@ class ShipmentBooker
             'label_url'      => null,
             'cod_amount'     => $cod,
             'latest_status'  => 'booked',
-            'raw_payload'    => ['source' => 'stub', 'mode' => 'stub', 'courier' => $slug],
+            'raw_payload'    => ['source' => 'stub', 'mode' => 'stub', 'courier' => $slug] + $this->courierNoteTrail($order, 'stub'),
             'booked_at'      => now(),
         ]);
     }
@@ -222,6 +306,20 @@ class ShipmentBooker
         return $fresh;
     }
 
+    /**
+     * Where the order's courier note went, kept on the consignment so the OMS
+     * can say whether the courier actually received it:
+     *   <slug>_api              sent in the courier API booking request
+     *   storefront              the store website booked it and echoed the note back
+     *   storefront_unconfirmed  sent to the store website, which did not confirm forwarding it
+     *   steadfast_panel         typed into the Steadfast panel by the operator (exchange parcels)
+     *   stub                    stub mode — no courier was called
+     */
+    private function courierNoteTrail(OrderMirror $order, string $via): array
+    {
+        return $order->courier_note ? ['courier_note' => $order->courier_note, 'courier_note_via' => $via] : [];
+    }
+
     private function name(string $slug): string
     {
         try { return $this->couriers->adapter($slug)->displayName(); }
@@ -253,7 +351,7 @@ class ShipmentBooker
     }
 
     /**
-     * @return array{courier_slug:?string,courier_name:?string,consignment_id:?string,tracking_code:?string,tracking_url:?string,label_url:?string,raw:array}|null
+     * @return array{courier_slug:?string,courier_name:?string,consignment_id:?string,tracking_code:?string,tracking_url:?string,label_url:?string,courier_note:?string,raw:array}|null
      */
     protected function bookViaStorefront(OrderMirror $order, string $slug, float $cod): ?array
     {
@@ -262,7 +360,9 @@ class ShipmentBooker
         try {
             $resp = (new StorefrontClient($order->store))->orders()->createShipment(
                 $order->order_number,
-                ['courier' => $slug, 'cod_amount' => $cod],
+                ['courier' => $slug, 'cod_amount' => $cod]
+                    // The store's courier driver puts this in the courier's note/instruction field.
+                    + ($order->courier_note ? ['courier_note' => $order->courier_note] : []),
             );
         } catch (\Throwable $e) {
             Log::info('[ShipmentBooker] storefront shipment endpoint unavailable', ['order' => $order->order_number, 'err' => $e->getMessage()]);
@@ -290,6 +390,7 @@ class ShipmentBooker
             'tracking_code'  => $tracking,
             'tracking_url'   => $d['tracking_url'] ?? $d['trackingUrl'] ?? null,
             'label_url'      => $d['label_url']    ?? $d['labelUrl']    ?? null,
+            'courier_note'   => $d['courier_note'] ?? null,
             'raw'            => is_array($resp) ? $resp : [],
         ];
     }

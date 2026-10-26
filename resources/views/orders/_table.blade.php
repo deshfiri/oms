@@ -67,7 +67,8 @@
                         <tr>
                             <td><x-order-pick :order="$o"/></td>
                             <td><a href="{{ route('orders.show', $o) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $o->order_number }}</a>
-                                @if($o->placed_by_user_id)<div style="font-size:10px;color:var(--a-text-3)">OMS-placed</div>@endif</td>
+                                @if($o->placed_by_user_id)<div style="font-size:10px;color:var(--a-text-3)">OMS-placed</div>@endif
+                                <x-exchange-badge :order="$o"/></td>
                             <td style="font-size:12px"><strong>{{ optional($o->store)->dfid }}</strong><div style="font-size:11px;color:var(--a-text-3)">{{ optional($o->store)->business_name }}</div></td>
                             <td>{{ $o->customer_name }}<div style="font-size:11px;color:var(--a-text-3)">{{ $o->customer_phone }}</div></td>
                             <td style="font-size:12px">

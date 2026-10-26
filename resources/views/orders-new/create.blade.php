@@ -21,7 +21,7 @@
                     <div class="admin-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                         <label style="grid-column:1/-1"><span style="font-size:12px;font-weight:600">Store *</span>
                             <select class="input" name="store_id" x-model="storeId" required
-                                @change="items = []; refreshProductSearch()">
+                                @change="items = []; clearOriginal(); refreshProductSearch()">
                                 <option value="">— select business —</option>
                                 @foreach($stores as $s)
                                     <option value="{{ $s->id }}">
@@ -30,8 +30,8 @@
                                 @endforeach
                             </select>
                         </label>
-                        <label><span style="font-size:12px;font-weight:600">Payment *</span>
-                            <select class="input" name="payment_method" required>
+                        <label x-show="!exchange"><span style="font-size:12px;font-weight:600">Payment *</span>
+                            <select class="input" name="payment_method" required :disabled="exchange">
                                 <option value="cod">Cash on delivery</option>
                                 <option value="bkash">bKash</option>
                                 <option value="nagad">Nagad</option>
@@ -44,11 +44,76 @@
                                 <option value="eps">EPS</option>
                             </select>
                         </label>
+                        <label class="xo-toggle" :class="exchange && 'is-on'">
+                            <input type="checkbox" x-model="exchange" @change="if (exchange && storeId) lookupOriginal()">
+                            <span><strong>Exchange order</strong>
+                                <small>Replacement for a delivered order</small></span>
+                        </label>
+                        <input type="hidden" name="is_exchange" :value="exchange ? 1 : 0">
                     </div>
                 </div>
 
-                {{-- Customer & delivery — mirrors the storefront checkout fields --}}
-                <div class="admin-card">
+                {{-- Exchange mode: which delivered order is being exchanged --}}
+                <div class="admin-card" x-show="exchange" x-cloak>
+                    <div class="admin-card-head"><x-admin.section-head icon="swap" title="Exchange details"
+                            description="The replacement ships to the original order's customer — free re-delivery, straight to Processing." /></div>
+                    <div class="admin-card-body" style="display:flex;flex-direction:column;gap:10px">
+                        <input type="hidden" name="original_order_id" :value="original ? original.id : ''" :disabled="!exchange">
+
+                        <div x-show="!original" style="display:flex;flex-direction:column;gap:6px;position:relative">
+                            <span style="font-size:12px;font-weight:600">Original order * <span style="font-weight:400;color:var(--a-text-3)">(delivered orders of this store)</span></span>
+                            <input class="input" type="text" x-model="originalQuery"
+                                @input.debounce.250ms="lookupOriginal()" @focus="lookupOriginal()"
+                                @click.away="originalResults = []"
+                                :disabled="!storeId"
+                                :placeholder="storeId ? 'Search order # · customer name · phone' : 'Pick a store first'">
+                            <div x-show="originalResults.length" x-cloak
+                                style="border:1px solid var(--a-border);border-radius:var(--a-r);background:var(--a-surface);max-height:260px;overflow-y:auto">
+                                <template x-for="o in originalResults" :key="o.id">
+                                    <div @click="pickOriginal(o)"
+                                        style="padding:8px 12px;border-bottom:1px solid var(--a-border);cursor:pointer;font-size:13px"
+                                        onmouseover="this.style.background='var(--a-surface-2)'" onmouseout="this.style.background=''">
+                                        <div style="display:flex;justify-content:space-between;gap:8px">
+                                            <strong x-text="o.order_number"></strong>
+                                            <span style="color:var(--a-text-3);font-size:11px" x-text="o.status + ' · ' + (o.placed_at || '')"></span>
+                                        </div>
+                                        <div style="font-size:12px;color:var(--a-text-2)" x-text="o.name + ' · ' + o.phone"></div>
+                                        <div style="font-size:11px;color:var(--a-text-3)" x-text="o.items.map(i => i.qty + '× ' + i.name).join(', ')"></div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div x-show="storeId && originalSearched && !originalResults.length" x-cloak
+                                style="font-size:12px;color:var(--a-text-3)">No delivered order matches — only delivered orders can be exchanged.</div>
+                        </div>
+
+                        <template x-if="original">
+                            <div class="xo-original">
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                                    <strong x-text="'Exchanging ' + original.order_number"></strong>
+                                    <button type="button" class="btn btn-outline btn-sm" @click="clearOriginal()">Change</button>
+                                </div>
+                                <div style="font-size:12px;color:var(--a-text-2)" x-text="original.name + ' · ' + original.phone"></div>
+                                <div style="font-size:12px;color:var(--a-text-2)" x-text="original.address"></div>
+                                <div style="font-size:12px;margin-top:6px"><span style="font-weight:600">Customer returns:</span>
+                                    <span x-text="original.items.map(i => i.qty + '× ' + i.name + (i.variant ? ' (' + i.variant + ')' : '')).join(', ')"></span></div>
+                            </div>
+                        </template>
+
+                        <label><span style="font-size:12px;font-weight:600">Reason *</span>
+                            <select class="input" name="exchange_reason" :required="exchange" :disabled="!exchange">
+                                <option value="">— reason —</option>
+                                @foreach($reasons as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <div style="font-size:11px;color:var(--a-text-3)">If this store ships with Steadfast: the Steadfast API has no exchange option, so this order is not auto-booked.
+                            Create it in the Steadfast panel with <strong>Exchange parcel</strong> ticked, then enter its consignment ID from Processing.</div>
+                    </div>
+                </div>
+
+                {{-- Customer & delivery — mirrors the storefront checkout fields (not used for exchanges) --}}
+                <fieldset class="admin-card" x-show="!exchange" :disabled="exchange" style="margin:0;padding:0;min-width:0">
                     <div class="admin-card-head"><x-admin.section-head icon="user" title="Customer details"
                             description="Same fields as the website checkout." /></div>
                     <div class="admin-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -93,13 +158,14 @@
                         <input type="hidden" name="shipping_city" :value="district">
                         <input type="hidden" name="shipping_zone" :value="zone">
                     </div>
-                </div>
+                </fieldset>
 
                 {{-- Items --}}
                 <div class="admin-card">
                     <div class="admin-card-head"><x-admin.section-head icon="cart" title="Items"
                             description="Search the store catalogue. Prices come from the catalogue." /></div>
                     <div class="admin-card-body" style="display:flex;flex-direction:column;gap:10px">
+                        <div x-show="exchange" x-cloak style="font-size:12px;font-weight:600;color:var(--a-accent)">Replacement products — what the customer receives in exchange.</div>
                         <div style="display:flex;gap:8px;position:relative">
                             <input class="input" type="text" x-model="search"
                                 @input.debounce.250ms="refreshProductSearch" @focus="if(storeId) refreshProductSearch()"
@@ -179,16 +245,18 @@
                         <label><span style="font-size:12px;font-weight:600">Discount (৳)</span><input class="input"
                                 name="discount" type="number" step="0.01" min="0" value="0"
                                 x-model.number="discount"></label>
-                        <label><span style="font-size:12px;font-weight:600">Coupon code</span><input class="input"
-                                name="coupon_code"></label>
+                        <label x-show="!exchange"><span style="font-size:12px;font-weight:600">Coupon code</span><input class="input"
+                                name="coupon_code" :disabled="exchange"></label>
                         <div
                             style="font-size:12px;color:var(--a-text-3);display:flex;justify-content:space-between;padding-top:4px">
-                            <span>Delivery charge <span x-show="shippingLoading">· fetching…</span></span>
+                            <span>Delivery charge <span x-show="shippingLoading && !exchange">· fetching…</span></span>
                             <strong style="color:var(--a-text-2)"
-                                x-text="zone ? ('৳' + (shipping||0).toFixed(2)) : '—'"></strong>
+                                x-text="exchange ? '৳0.00' : (zone ? ('৳' + (shipping||0).toFixed(2)) : '—')"></strong>
                         </div>
-                        <div style="font-size:11px;color:var(--a-text-3)">Pulled from the store website by zone — not
+                        <div x-show="!exchange" style="font-size:11px;color:var(--a-text-3)">Pulled from the store website by zone — not
                             editable.</div>
+                        <div x-show="exchange" x-cloak style="font-size:11px;color:var(--a-text-3)">Exchange: free re-delivery. Use Discount to
+                            charge only the price difference.</div>
                     </div>
                 </div>
 
@@ -200,8 +268,8 @@
                         <div style="display:flex;justify-content:space-between;color:var(--a-text-2)">
                             <span>Discount</span><span x-text="'−৳' + (discount||0).toFixed(2)"></span>
                         </div>
-                        <div style="display:flex;justify-content:space-between;color:var(--a-text-2)"><span>Delivery
-                                (website)</span><span x-text="'৳' + (shipping||0).toFixed(2)"></span></div>
+                        <div style="display:flex;justify-content:space-between;color:var(--a-text-2)"><span x-text="exchange ? 'Delivery (exchange)' : 'Delivery (website)'">Delivery
+                                (website)</span><span x-text="'৳' + deliveryCharge().toFixed(2)"></span></div>
                         <hr style="border-color:var(--a-border)">
                         <div style="display:flex;justify-content:space-between;font-size:15px"><strong>Grand
                                 total</strong><strong x-text="'৳' + grandTotal().toFixed(2)"></strong></div>
@@ -210,11 +278,22 @@
 
                 <div class="admin-card">
                     <div class="admin-card-head"><x-admin.section-head icon="clock" title="Notes" /></div>
-                    <div class="admin-card-body"><textarea class="input" name="notes" rows="3"
-                            placeholder="Internal note for CS"></textarea></div>
+                    <div class="admin-card-body" style="display:flex;flex-direction:column;gap:10px">
+                        <label><span style="font-size:12px;font-weight:600">Internal note</span>
+                            <textarea class="input" name="notes" rows="3" placeholder="Internal note for CS"></textarea></label>
+                        <label><span style="font-size:12px;font-weight:600">Courier note</span>
+                            <textarea class="input" name="courier_note" rows="2" maxlength="{{ \App\Models\OrderMirror::COURIER_NOTE_MAX }}"
+                                x-model="courierNote"
+                                placeholder="For the courier / rider, e.g. URGENT: please deliver as soon as possible."></textarea>
+                            <span style="display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--a-text-3);margin-top:2px">
+                                <span>Sent with the courier booking. Not for internal remarks.</span>
+                                <span x-text="(courierNote || '').length + '/{{ \App\Models\OrderMirror::COURIER_NOTE_MAX }}'"></span>
+                            </span></label>
+                    </div>
                 </div>
 
-                <button class="btn btn-dark btn-lg btn-block">Place order — send to verification</button>
+                <button class="btn btn-dark btn-lg btn-block"
+                    x-text="exchange ? 'Create exchange order — send to Processing' : 'Place order — send to verification'">Place order — send to verification</button>
             </div>
         </div>
 
@@ -283,6 +362,14 @@
             [x-cloak] {
                 display: none !important
             }
+            /* Exchange order toggle (same idea as Steadfast's "Exchange parcel" box) */
+            .xo-toggle { display:flex; align-items:center; gap:10px; align-self:end; min-height:42px; padding:8px 12px;
+                border:1px solid var(--a-border); border-radius:var(--a-r); cursor:pointer; }
+            .xo-toggle.is-on { border-color:var(--a-accent-border); background:var(--a-accent-soft); }
+            .xo-toggle input { width:18px; height:18px; accent-color:var(--a-accent); cursor:pointer; flex:none; }
+            .xo-toggle span { display:flex; flex-direction:column; line-height:1.2; font-size:13px; }
+            .xo-toggle small { font-size:11px; color:var(--a-text-3); }
+            .xo-original { border:1px solid var(--a-accent-border); background:var(--a-accent-soft); border-radius:var(--a-r); padding:10px 12px; }
         </style>
         <script>
             function orderForm() {
@@ -295,6 +382,7 @@
                     shipping: 0,
                     shippingLoading: false,
                     customerPhone: '',
+                    courierNote: '',
                     fraudChecking: false,
                     fraudModal: false,
                     fraudResult: null,
@@ -304,6 +392,12 @@
                     area: '',
                     areas: [],
                     zone: '',
+                    // Exchange mode
+                    exchange: false,
+                    original: null,
+                    originalQuery: '',
+                    originalResults: [],
+                    originalSearched: false,
 
                     init() {
                         // Re-quote the delivery charge whenever items or store change.
@@ -402,12 +496,36 @@
                     removeItem(idx) {
                         this.items = this.items.filter((_, i) => i !== idx);
                     },
+                    async lookupOriginal() {
+                        if (!this.storeId || !this.exchange) { this.originalResults = []; return; }
+                        const u = new URL('{{ route("orders-new.exchange-lookup") }}', location.origin);
+                        u.searchParams.set('store_id', this.storeId);
+                        if (this.originalQuery) u.searchParams.set('q', this.originalQuery);
+                        try {
+                            const r = await fetch(u.toString(), { headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' } });
+                            this.originalResults = r.ok ? await r.json() : [];
+                        } catch (e) { this.originalResults = []; }
+                        this.originalSearched = true;
+                    },
+                    pickOriginal(o) {
+                        this.original = o;
+                        this.originalResults = [];
+                        this.originalQuery = '';
+                    },
+                    clearOriginal() {
+                        this.original = null;
+                        this.originalResults = [];
+                        this.originalSearched = false;
+                    },
+
                     subtotal() { return this.items.reduce((a, it) => a + (it.qty * it.unit_price), 0); },
+                    deliveryCharge() { return this.exchange ? 0 : (this.shipping || 0); },
                     grandTotal() {
-                        return Math.max(0, this.subtotal() - (this.discount || 0) + (this.shipping || 0));
+                        return Math.max(0, this.subtotal() - (this.discount || 0) + this.deliveryCharge());
                     },
                     syncItemsBeforeSubmit(e) {
-                        if (!this.items.length) { e.preventDefault(); alert('Add at least one item.'); return; }
+                        if (this.exchange && !this.original) { e.preventDefault(); alert('Pick the delivered order this exchange replaces.'); return; }
+                        if (!this.items.length) { e.preventDefault(); alert(this.exchange ? 'Add at least one replacement product.' : 'Add at least one item.'); return; }
                         const slot = document.getElementById('hidden-items');
                         slot.innerHTML = '';
                         this.items.forEach((it, i) => {
