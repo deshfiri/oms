@@ -60,6 +60,47 @@
                 </div>
             </div>
 
+            @if($order->courier_note)
+            @php
+                $noteVia = optional($order->consignments()->latest('id')->first())->raw_payload['courier_note_via'] ?? null;
+                $noteStatus = match (true) {
+                    $noteVia === null                   => 'Not sent yet — goes with the courier booking.',
+                    str_ends_with($noteVia, '_api')     => 'Sent to '.ucfirst(str_replace('_api', '', $noteVia)).' in the booking API request.',
+                    $noteVia === 'storefront'           => 'Sent via the store website (it confirmed forwarding it to the courier).',
+                    $noteVia === 'storefront_unconfirmed' => 'Passed to the store website, which did not confirm forwarding it to the courier.',
+                    $noteVia === 'steadfast_panel'      => 'Booked in the Steadfast panel — the note is entered there by hand.',
+                    default                             => 'Stub mode — no courier was called.',
+                };
+            @endphp
+            <div class="admin-card">
+                <div class="admin-card-head"><x-admin.section-head icon="truck" title="Courier note"/></div>
+                <div class="admin-card-body" style="font-size:13px">
+                    <p style="margin:0;white-space:pre-line">{{ $order->courier_note }}</p>
+                    <p style="margin:6px 0 0;font-size:11px;color:var(--a-text-3)">{{ $noteStatus }}</p>
+                </div>
+            </div>
+            @endif
+
+            @if($order->exchange_of_order_id || $order->exchanges->isNotEmpty())
+            <div class="admin-card">
+                <div class="admin-card-head"><x-admin.section-head icon="swap" title="Exchange"/></div>
+                <div class="admin-card-body" style="font-size:13px;display:flex;flex-direction:column;gap:4px">
+                    @if($order->exchangeOriginal)
+                        <p style="margin:0">Replacement for <a href="{{ route('orders.show', $order->exchangeOriginal) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $order->exchangeOriginal->order_number }}</a></p>
+                        @php $cons = $order->consignments()->latest('id')->first(); @endphp
+                        <p style="margin:0;color:var(--a-text-2)">Courier:
+                            @if($cons){{ $cons->courier_name }} · <span style="font-family:ui-monospace,monospace">{{ $cons->consignment_id }}</span>@if(($cons->raw_payload['source'] ?? null) === 'manual_exchange') · Steadfast exchange parcel @endif
+                            @else not booked yet @endif</p>
+                    @endif
+                    @foreach($order->exchanges as $ex)
+                        <p style="margin:0">Exchanged → replacement
+                            @if($ex->replacement)<a href="{{ route('orders.show', $ex->replacement) }}" style="color:var(--a-accent);font-weight:700;text-decoration:none">{{ $ex->replacement->order_number }}</a>@else — @endif
+                            <span style="color:var(--a-text-3)">· {{ ucfirst($ex->status) }}</span></p>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             <div class="admin-card">
                 <div class="admin-card-head"><x-admin.section-head icon="list" title="Workflow"/></div>
                 <div class="admin-card-body" style="font-size:13px">

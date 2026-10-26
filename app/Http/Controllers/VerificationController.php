@@ -72,11 +72,16 @@ class VerificationController extends Controller
             'coupon_discount'       => 'nullable|numeric|min:0',
             'shipping_total'        => 'nullable|numeric|min:0',   // §3: CS may modify courier charges
             'notes'                 => 'nullable|string|max:2000',
+            'courier_note'          => 'nullable|string|max:'.OrderMirror::COURIER_NOTE_MAX,
         ]);
 
         // Diff for the verification log
         $before = $order->only(array_keys($data));
         $order->update(array_filter($data, fn($v) => $v !== null));
+        // The courier note can also be cleared — only from forms that carry it.
+        if ($r->exists('courier_note')) {
+            $order->update(['courier_note' => $data['courier_note'] ?? null]);
+        }
         // Recompute grand total from the LOCKED item prices — never from the
         // catalogue — so an edit here can only move the discount/shipping, not the
         // snapshotted product prices.

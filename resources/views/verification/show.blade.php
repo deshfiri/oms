@@ -72,6 +72,7 @@
                     <label><span style="font-size:12px;font-weight:600">Coupon code</span><input class="input" name="coupon_code" value="{{ $order->coupon_code }}" placeholder="e.g. SAVE100"></label>
                     <label><span style="font-size:12px;font-weight:600">Coupon discount (৳)</span><input class="input" name="coupon_discount" type="number" step="0.01" min="0" value="{{ $order->coupon_discount ?? 0 }}"></label>
                     <label style="grid-column:1/-1"><span style="font-size:12px;font-weight:600">Internal note</span><textarea class="input" name="notes" rows="2">{{ $order->notes }}</textarea></label>
+                    <label style="grid-column:1/-1"><span style="font-size:12px;font-weight:600">Courier note</span><textarea class="input" name="courier_note" rows="2" maxlength="{{ \App\Models\OrderMirror::COURIER_NOTE_MAX }}" placeholder="For the courier / rider — sent with the courier booking">{{ $order->courier_note }}</textarea></label>
                 </div>
                 <div class="admin-card-body" style="border-top:1px solid var(--a-border);display:flex;justify-content:flex-end">
                     <button class="btn btn-dark">Save adjustments</button>

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\OrderMirror;
 use App\Models\ProductMirror;
 use App\Models\Store;
+use App\Services\Orders\ExchangeException;
+use App\Services\Orders\ExchangeIssuer;
 use App\Services\Orders\OrderStateMachine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +27,7 @@ class OrderCreationController extends Controller
     public function index(Request $r)
     {
         $u = $r->user();
-        $q = OrderMirror::with('store:id,dfid,business_name,name','placedBy:id,name','items:'.OrderMirror::ITEM_COLUMNS)
+        $q = OrderMirror::with('store:id,dfid,business_name,name','placedBy:id,name','items:'.OrderMirror::ITEM_COLUMNS,'exchangeOriginal:id,order_number')
             ->whereNotNull('placed_by_user_id')
             ->when(! $u->isAdmin(), fn($q) => $q->where('placed_by_user_id', $u->id))
             ->storeFilter($r->store_id, $r->store)
@@ -51,7 +53,100 @@ class OrderCreationController extends Controller
         return view('orders-new.create', [
             'stores'    => $stores,
             'districts' => $this->districts(),
+            'reasons'   => ExchangeIssuer::REASONS,
         ]);
+    }
+
+    /**
+     * AJAX (exchange mode): delivered orders of the chosen store that can be
+     * exchanged, matched by order number / customer name / phone.
+     */
+    public function exchangeLookup(Request $r)
+    {
+        $r->validate(['store_id' => 'required|exists:stores,id', 'q' => 'nullable|string|max:120']);
+        if (! $r->user()->canAccessStore((int) $r->store_id)) abort(403);
+
+        $orders = OrderMirror::with('items:id,order_id,sku,name,variant_label,qty')
+            ->where('store_id', $r->store_id)
+            ->whereIn('status', [OrderStateMachine::DELIVERED, OrderStateMachine::PARTIAL_DELIVERY])
+            ->when($r->q, fn ($q, $t) => $q->where(fn ($x) => $x
+                ->where('order_number', 'like', "%$t%")
+                ->orWhere('customer_name', 'like', "%$t%")
+                ->orWhere('customer_phone', 'like', "%$t%")
+                ->orWhere('shipping_phone', 'like', "%$t%")))
+            ->latest('placed_at')->limit(15)->get();
+
+        return response()->json($orders->map(fn (OrderMirror $o) => [
+            'id'           => $o->id,
+            'order_number' => $o->order_number,
+            'status'       => $o->statusLabel(),
+            'name'         => $o->shipping_name ?: $o->customer_name,
+            'phone'        => $o->shipping_phone ?: $o->customer_phone,
+            'address'      => collect([$o->shipping_address_line, $o->shipping_area, $o->shipping_city])->filter()->implode(', '),
+            'payment'      => $o->payment_method,
+            'placed_at'    => optional($o->placed_at)->format('d M Y'),
+            'grand_total'  => (float) $o->grand_total,
+            'items'        => $o->items->map(fn ($i) => ['qty' => (int) $i->qty, 'name' => $i->name, 'sku' => $i->sku, 'variant' => $i->variant_label])->values(),
+        ])->values());
+    }
+
+    /**
+     * Register order in exchange mode: the replacement for a delivered order.
+     * Customer, address and payment come from the original order; the
+     * replacement ships free and goes straight to Processing (ExchangeIssuer).
+     */
+    private function storeExchange(Request $r)
+    {
+        $data = $r->validate([
+            'store_id'          => 'required|exists:stores,id',
+            'original_order_id' => 'required|integer|exists:orders_mirror,id',
+            'exchange_reason'   => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys(ExchangeIssuer::REASONS))],
+            'discount'          => 'nullable|numeric|min:0',
+            'notes'             => 'nullable|string|max:1000',
+            'courier_note'      => 'nullable|string|max:'.OrderMirror::COURIER_NOTE_MAX,
+            'items'             => 'required|array|min:1',
+            'items.*.sku'       => 'required|string|max:255',
+            'items.*.qty'       => 'required|integer|min:1',
+        ], [
+            'original_order_id.required' => 'Pick the delivered order this exchange replaces.',
+            'exchange_reason.required'   => 'Pick the exchange reason.',
+            'items.required'             => 'Add at least one replacement product.',
+        ]);
+
+        $u = $r->user();
+        if (! $u->canAccessStore((int) $data['store_id'])) {
+            abort(403, 'You are not assigned to this store.');
+        }
+
+        $original = OrderMirror::findOrFail($data['original_order_id']);
+        if ((int) $original->store_id !== (int) $data['store_id']) {
+            return back()->withInput()->with('error', "{$original->order_number} belongs to a different store — pick an order from the selected store.");
+        }
+
+        try {
+            $ex = app(ExchangeIssuer::class)->issue($original, $data['items'], $data['exchange_reason'], $data['notes'] ?? null, [
+                'discount' => (float) ($data['discount'] ?? 0),
+                'note'     => $data['notes'] ?? null,
+            ]);
+        } catch (ExchangeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+        if (! empty($data['courier_note'])) {
+            $ex->replacement->update(['courier_note' => $data['courier_note']]);
+        }
+
+        \App\Models\AuditLog::create([
+            'user_id'     => $u->id,
+            'action'      => 'order.exchange.oms',
+            'entity_type' => OrderMirror::class,
+            'entity_id'   => $ex->replacement_order_id,
+            'after_json'  => ['exchange_id' => $ex->id, 'original' => $original->order_number, 'replacement' => $ex->replacement->order_number],
+            'ip'          => $r->ip(),
+            'user_agent'  => $r->userAgent(),
+        ]);
+
+        return redirect()->route('orders-new.index')->with('status',
+            "Exchange order {$ex->replacement->order_number} created for {$original->order_number} — it is in Processing; {$original->order_number} now awaits the returned product.");
     }
 
     /** Bangladesh district → areas reference (same data the storefront uses). */
@@ -86,6 +181,10 @@ class OrderCreationController extends Controller
 
     public function store(Request $r)
     {
+        if ($r->boolean('is_exchange')) {
+            return $this->storeExchange($r);
+        }
+
         $u = $r->user();
         // Same field rules as the storefront checkout (PlaceOrderRequest).
         $data = $r->validate([
@@ -102,6 +201,7 @@ class OrderCreationController extends Controller
             'discount'              => 'nullable|numeric|min:0',
             'coupon_code'           => 'nullable|string|max:60',
             'notes'                 => 'nullable|string|max:1000',
+            'courier_note'          => 'nullable|string|max:'.OrderMirror::COURIER_NOTE_MAX,
             'items'                 => 'required|array|min:1',
             'items.*.sku'           => 'required|string|max:255',
             'items.*.qty'           => 'required|integer|min:1',
@@ -176,11 +276,12 @@ class OrderCreationController extends Controller
         }
 
         // ── 2. Mirror the canonical website order into the OMS ────────────
-        $order = DB::transaction(function () use ($u, $store, $remote) {
+        $order = DB::transaction(function () use ($u, $store, $remote, $data) {
             $order = app(\App\Services\Mirror\MirrorUpserter::class)->order($store, $remote);
             $order->update([
                 'placed_by_user_id' => $u->id,
                 'placed_at'         => $order->placed_at ?? now(),
+                'courier_note'      => $data['courier_note'] ?? null,
             ]);
 
             \App\Models\AuditLog::create([

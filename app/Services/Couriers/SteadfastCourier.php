@@ -15,7 +15,8 @@ class SteadfastCourier implements CourierAdapter
         return ['provides_consignment'=>true, 'provides_tracking'=>true, 'direct_api'=>true, 'manual_entry'=>false];
     }
 
-    public function bookConsignment(OrderMirror $order, array $opts = []): array
+    /** @return array{0:string,1:string} [api key, secret] */
+    private function credentials(OrderMirror $order): array
     {
         // Per-store credentials take priority; fall back to global config.
         $storeCreds = $order->store ? $order->store->credentialsFor('steadfast') : [];
@@ -27,6 +28,43 @@ class SteadfastCourier implements CourierAdapter
                 'Steadfast credentials not configured — add them in Stores → Edit → Courier credentials, or set STEADFAST_API_KEY / STEADFAST_SECRET in .env.'
             );
         }
+        return [$apiKey, $secret];
+    }
+
+    /**
+     * Native delivery status of an existing consignment (GET status_by_cid).
+     * Used to verify a consignment created in the Steadfast panel (exchange
+     * parcels — the API has no exchange option) before the OMS records it.
+     *
+     * @throws CourierUnavailableException  no credentials
+     * @throws \RuntimeException            unknown consignment / API or network error
+     */
+    public function consignmentStatus(OrderMirror $order, string $consignmentId): string
+    {
+        [$apiKey, $secret] = $this->credentials($order);
+
+        try {
+            $resp = Http::withHeaders([
+                    'Api-Key'    => $apiKey,
+                    'Secret-Key' => $secret,
+                    'Accept'     => 'application/json',
+                ])
+                ->timeout(15)
+                ->get('https://portal.packzy.com/api/v1/status_by_cid/'.rawurlencode($consignmentId));
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Could not reach Steadfast to verify the consignment: '.$e->getMessage());
+        }
+
+        $body = $resp->json() ?? [];
+        if (! $resp->successful() || (int) ($body['status'] ?? 0) !== 200 || empty($body['delivery_status'])) {
+            throw new \RuntimeException("Steadfast did not confirm consignment {$consignmentId}: ".($body['message'] ?? 'not found on this Steadfast account').'.');
+        }
+        return (string) $body['delivery_status'];
+    }
+
+    public function bookConsignment(OrderMirror $order, array $opts = []): array
+    {
+        [$apiKey, $secret] = $this->credentials($order);
 
         $payload = [
             'invoice'           => $order->order_number,
@@ -34,7 +72,8 @@ class SteadfastCourier implements CourierAdapter
             'recipient_phone'   => $order->shipping_phone,
             'recipient_address' => $order->shipping_address_line.', '.$order->shipping_area.', '.$order->shipping_city,
             'cod_amount'        => $opts['cod_amount'] ?? ($order->payment_method === 'cod' ? $order->grand_total : 0),
-            'note'              => $opts['note'] ?? null,
+            // Rider instructions — Steadfast's documented `note` field (max 480 chars).
+            'note'              => isset($opts['note']) && $opts['note'] !== '' ? mb_substr($opts['note'], 0, OrderMirror::COURIER_NOTE_MAX) : null,
         ];
 
         $resp = Http::withHeaders([

@@ -75,7 +75,7 @@ class AllOrdersController extends Controller
 
         // Pagination links always point to /orders, regardless of whether this
         // request came from the main page or the AJAX /orders/rows endpoint.
-        $orders = $query->with('store:id,dfid,business_name,name', 'consignments', 'items:'.OrderMirror::ITEM_COLUMNS)
+        $orders = $query->with('store:id,dfid,business_name,name', 'consignments', 'items:'.OrderMirror::ITEM_COLUMNS, 'exchangeOriginal:id,order_number')
             ->paginate($perPage)
             ->withPath(route('orders.index'))
             ->appends($r->except('page'));

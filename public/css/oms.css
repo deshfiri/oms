@@ -360,3 +360,7 @@ input[data-order-pick],input[data-order-pick-all]{width:16px;height:16px;cursor:
     .opick-actions{margin-left:2px;padding-left:6px}
     .opick-btn{padding:0 10px}
 }
+
+/* ---------- <x-exchange-badge>: exchange replacement orders ---------- */
+.xo-badge{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.04em;line-height:16px;white-space:nowrap;background:var(--a-accent-soft);color:var(--a-accent);border:1px solid var(--a-accent-border)}
+.xo-badge span{font-weight:600;letter-spacing:0}
